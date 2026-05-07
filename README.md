@@ -78,7 +78,7 @@ Filter high-exposure devices in Device Inventory and prioritize patching or conf
 
 ### Remediation Recommendations
 
-Lists prioritized remediation actions aggregated from Defender APIs and MCP-backed enrichment sources (Microsoft Learn, Azure, Sentinel, Security Copilot, Fabric, Defender Response). Each row includes the priority level, related risk area, description, and an actionable link.
+Lists prioritized remediation actions aggregated from Defender APIs and Model Context Protocol (MCP)-backed enrichment sources (Microsoft Learn, Azure, Sentinel, Security Copilot, Fabric, Defender Response). Each row includes the priority level, related risk area, description, and an actionable link.
 
 ![Remediation Recommendations dashboard](images/dashboard-remediation-recommendations.png)
 
