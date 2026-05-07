@@ -2,6 +2,94 @@
 
 Standalone service that centralizes Microsoft Defender XDR Vulnerability Management, Microsoft Secure Score, and Cloud Secure Score data into a Power BI-ready API and export pipeline.
 
+## Dashboard Overview
+
+The Power BI report built on top of this service surfaces five dashboard pages. Each section below describes what the page shows, where to find the equivalent view in the Microsoft Defender XDR portal, and where you would take follow-up action.
+
+---
+
+### Executive Overview
+
+Provides a single-pane summary of your organization's security posture: M365 Secure Score percentage, Cloud Secure Score percentage, overall Exposure Score, and the total count of active remediation recommendations.
+
+![Executive Overview dashboard](images/dashboard-overview.png)
+
+**Take action in the XDR portal:**
+- [Microsoft Defender XDR – Security Overview](https://security.microsoft.com/)
+- [Microsoft Secure Score](https://security.microsoft.com/securescore)
+- [Exposure Management Overview](https://security.microsoft.com/exposure-management)
+
+---
+
+### Program Initiatives
+
+Shows each security initiative tracked by Defender Exposure Management with its current score percentage, target score percentage, and 14-day trend direction (up / flat / down).
+
+![Program Initiatives dashboard](images/dashboard-program-initiatives.png)
+
+**Take action in the XDR portal:**
+- [Exposure Management – Initiatives](https://security.microsoft.com/exposure-management/initiatives)
+
+Review initiatives that are below target score or trending downward and open the initiative detail page to see which assets and controls are contributing to the gap.
+
+---
+
+### Top Initiatives
+
+Highlights the highest-priority initiatives based on current score, enabling teams to focus remediation effort where it matters most.
+
+![Top Initiatives dashboard](images/dashboard-top-initiatives.png)
+
+**Take action in the XDR portal:**
+- [Exposure Management – Initiatives](https://security.microsoft.com/exposure-management/initiatives)
+
+Click into any initiative to drill into specific security controls and affected assets.
+
+---
+
+### Secure Scores
+
+Tracks both M365 Secure Score (current vs. maximum points) and Cloud Secure Score (current vs. target percentage) in a single view, enabling trend analysis across workloads.
+
+![Secure Scores dashboard](images/dashboard-secure-scores.png)
+
+**Take action in the XDR portal:**
+- [Microsoft Secure Score – Recommended Actions](https://security.microsoft.com/securescore?viewid=actions)
+- [Cloud Security Posture](https://security.microsoft.com/cloud-security)
+
+Filter recommended actions by category (Identity, Device, Apps, Data, Infrastructure) and complete or delegate improvement actions directly from the portal.
+
+---
+
+### Vulnerability Overview
+
+Shows the organization-wide exposure score, derived exposure level (Low / Medium / High), count of critical CVEs, count of active security recommendations, and a device exposure distribution chart (low / medium / high risk devices).
+
+![Vulnerability Overview dashboard](images/dashboard-vulnerability-overview.png)
+
+**Take action in the XDR portal:**
+- [Vulnerability Management – Dashboard](https://security.microsoft.com/vulnerability-management)
+- [Weaknesses (CVEs)](https://security.microsoft.com/vulnerabilities)
+- [Device Inventory](https://security.microsoft.com/machines)
+
+Filter high-exposure devices in Device Inventory and prioritize patching or configuration changes for critical CVEs listed in the Weaknesses page.
+
+---
+
+### Remediation Recommendations
+
+Lists prioritized remediation actions aggregated from Defender APIs and MCP-backed enrichment sources (Microsoft Learn, Azure, Sentinel, Security Copilot, Fabric, Defender Response). Each row includes the priority level, related risk area, description, and an actionable link.
+
+![Remediation Recommendations dashboard](images/dashboard-remediation-recommendations.png)
+
+**Take action in the XDR portal:**
+- [Security Recommendations](https://security.microsoft.com/recommendations)
+- [Vulnerability Management – Remediation](https://security.microsoft.com/remediation)
+
+Open recommendations in the portal to assign remediation tasks to device groups, set due dates, and track remediation progress.
+
+---
+
 ## Application Purpose
 
 This repository exists to give customers a single IT security health dashboard source that:
