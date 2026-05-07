@@ -1,0 +1,37 @@
+{
+  "name": "defender-xdr-powerbi-healthhub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone API pipeline for Microsoft Defender XDR and Secure Score data feeding Power BI dashboards",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "refresh:once": "tsx src/index.ts --once",
+    "type-check": "tsc -p tsconfig.json --noEmit",
+    "service:install": "powershell -ExecutionPolicy Bypass -File .\\scripts\\Install-HealthHubWindowsService.ps1",
+    "service:uninstall": "powershell -ExecutionPolicy Bypass -File .\\scripts\\Uninstall-HealthHubWindowsService.ps1",
+    "entra:register": "powershell -ExecutionPolicy Bypass -File .\\scripts\\Register-HealthHubEnterpriseApp.ps1",
+    "deploy:client": "powershell -ExecutionPolicy Bypass -File .\\scripts\\Deploy-HealthHubClient.ps1"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "node-cron": "^3.0.3",
+    "pino": "^9.5.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.10.2",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}
