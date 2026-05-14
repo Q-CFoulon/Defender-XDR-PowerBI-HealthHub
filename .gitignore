@@ -1,5 +1,11 @@
 node_modules/
 dist/
-.env
 data/*.json
 npm-debug.log*
+
+# Local/private environment files
+.env
+.env.*
+*.env
+!.env.example
+!.env.*.example

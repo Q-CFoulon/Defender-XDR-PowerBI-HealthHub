@@ -1,5 +1,35 @@
 export type TrendDirection = "up" | "down" | "flat";
 
+export type SourceHealthStatus = "unknown" | "healthy" | "degraded" | "failed" | "disabled";
+export type RefreshHealthStatus = "never" | "success" | "partial" | "failed";
+
+export interface SourceErrorDetail {
+  source: "defender" | "graph" | "mcpBridge";
+  endpoint: string;
+  path: string;
+  statusCode: number | null;
+  message: string;
+}
+
+export interface SourceRuntimeStatus {
+  status: SourceHealthStatus;
+  errorCount: number;
+  lastError: string | null;
+  details: string[];
+}
+
+export interface IngestionStatusSnapshot {
+  lastRefreshStatus: RefreshHealthStatus;
+  lastRefreshTime: string | null;
+  lastRefreshTrigger: string | null;
+  lastRefreshError: string | null;
+  sourceStatus: {
+    defender: SourceRuntimeStatus;
+    graph: SourceRuntimeStatus;
+    mcpBridge: SourceRuntimeStatus;
+  };
+}
+
 export interface ProgramInitiative {
   name: string;
   currentScorePct: number | null;
@@ -80,8 +110,10 @@ export interface DefenderRawData {
   topInitiatives: unknown;
   vulnerabilityOverview: unknown;
   cloudSecureScore: unknown;
+  errors: SourceErrorDetail[];
 }
 
 export interface GraphRawData {
   secureScores: unknown;
+  error: SourceErrorDetail | null;
 }

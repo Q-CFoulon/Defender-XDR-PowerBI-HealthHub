@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Defender XDR Health Hub — Admin Dashboard</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --text-muted: #8b949e; --text-dim: #484f58;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149; --blue: #58a6ff;
+    --green-bg: rgba(63,185,80,.12); --yellow-bg: rgba(210,153,34,.12);
+    --red-bg: rgba(248,81,73,.12); --blue-bg: rgba(88,166,255,.12);
+    --gray-bg: rgba(139,148,158,.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { color: var(--text-muted); font-size: .875rem; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .card-title { font-size: .875rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 12px; font-size: .75rem; font-weight: 600; }
+  .badge::before { content: ''; width: 8px; height: 8px; border-radius: 50%; }
+  .badge-healthy, .badge-success { background: var(--green-bg); color: var(--green); }
+  .badge-healthy::before, .badge-success::before { background: var(--green); }
+  .badge-degraded, .badge-partial { background: var(--yellow-bg); color: var(--yellow); }
+  .badge-degraded::before, .badge-partial::before { background: var(--yellow); }
+  .badge-failed { background: var(--red-bg); color: var(--red); }
+  .badge-failed::before { background: var(--red); }
+  .badge-disabled, .badge-unknown, .badge-never { background: var(--gray-bg); color: var(--text-muted); }
+  .badge-disabled::before, .badge-unknown::before, .badge-never::before { background: var(--text-dim); }
+  .metric { margin-bottom: 8px; }
+  .metric-label { font-size: .75rem; color: var(--text-muted); }
+  .metric-value { font-size: 1.25rem; font-weight: 600; }
+  .metric-value.mono { font-family: 'SF Mono', Consolas, monospace; font-size: 1rem; }
+  .error-list { list-style: none; margin-top: 8px; }
+  .error-list li { font-size: .8rem; font-family: 'SF Mono', Consolas, monospace; color: var(--red); padding: 4px 8px; background: var(--red-bg); border-radius: 4px; margin-bottom: 4px; word-break: break-all; }
+  .source-section { border-top: 1px solid var(--border); padding-top: 16px; margin-top: 16px; }
+  .source-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .source-name { font-weight: 600; font-size: .9rem; }
+  .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 24px; }
+  button { background: var(--blue); color: #fff; border: none; padding: 8px 20px; border-radius: 6px; font-size: .875rem; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-danger { background: var(--red); }
+  .auto-label { font-size: .8rem; color: var(--text-muted); }
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 8px; font-size: .875rem; font-weight: 500; z-index: 100; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast-ok { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+  .toast-err { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+  .score-bar { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .score-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+  .score-pct { font-size: .8rem; font-weight: 600; min-width: 40px; text-align: right; }
+  .empty-state { color: var(--text-dim); font-size: .85rem; font-style: italic; }
+  .refreshing-indicator { display: none; color: var(--blue); font-size: .85rem; }
+  .refreshing-indicator.active { display: inline; }
+  @media (max-width: 640px) { body { padding: 12px; } .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>Defender XDR Health Hub</h1>
+<p class="subtitle">Admin Dashboard — <span id="baseUrl"></span></p>
+
+<div class="actions">
+  <button id="refreshBtn" onclick="triggerRefresh()">Trigger Refresh</button>
+  <span class="refreshing-indicator" id="refreshingIndicator">Refreshing…</span>
+  <label class="auto-label"><input type="checkbox" id="autoRefresh" checked /> Auto-poll every 30s</label>
+</div>
+
+<div class="grid" id="topCards">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Service</span><span class="badge badge-unknown" id="serviceBadge">—</span></div>
+    <div class="metric"><span class="metric-label">Uptime</span><div class="metric-value mono" id="uptime">—</div></div>
+    <div class="metric"><span class="metric-label">Tenant</span><div class="metric-value mono" id="tenantId">—</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Last Refresh</span><span class="badge badge-unknown" id="refreshBadge">—</span></div>
+    <div class="metric"><span class="metric-label">Time</span><div class="metric-value mono" id="refreshTime">—</div></div>
+    <div class="metric"><span class="metric-label">Trigger</span><div class="metric-value mono" id="refreshTrigger">—</div></div>
+    <div class="metric"><span class="metric-label">Snapshot</span><div class="metric-value mono" id="hasSnapshot">—</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Secure Scores</span></div>
+    <div class="metric">
+      <span class="metric-label">M365 Secure Score</span>
+      <div class="score-bar"><div class="score-track"><div class="score-fill" id="m365Fill" style="width:0;background:var(--text-dim)"></div></div><span class="score-pct" id="m365Pct">—</span></div>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Cloud Secure Score</span>
+      <div class="score-bar"><div class="score-track"><div class="score-fill" id="cloudFill" style="width:0;background:var(--text-dim)"></div></div><span class="score-pct" id="cloudPct">—</span></div>
+    </div>
+    <div class="metric"><span class="metric-label">Recommendations</span><div class="metric-value" id="recCount">—</div></div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:24px">
+  <div class="card-header"><span class="card-title">Source Health</span></div>
+  <div id="sourceHealth">
+    <p class="empty-state">Loading…</p>
+  </div>
+</div>
+
+<div class="card" id="errorCard" style="display:none">
+  <div class="card-header"><span class="card-title">Recent Errors</span></div>
+  <ul class="error-list" id="errorList"></ul>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const BASE = window.location.origin;
+document.getElementById('baseUrl').textContent = BASE;
+
+let polling = null;
+
+function badge(status) {
+  const cls = `badge-${status || 'unknown'}`;
+  return `<span class="badge ${cls}">${status || 'unknown'}</span>`;
+}
+
+function scoreColor(pct) {
+  if (pct == null) return 'var(--text-dim)';
+  if (pct >= 80) return 'var(--green)';
+  if (pct >= 50) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString();
+}
+
+function fmtUptime(s) {
+  if (s == null) return '—';
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  return `${h}h ${m}m ${sec}s`;
+}
+
+function renderSource(name, src) {
+  const errors = (src.details || []).filter(d => d && d.trim().length > 0);
+  return `
+    <div class="source-section">
+      <div class="source-header">
+        <span class="source-name">${name}</span>
+        ${badge(src.status)}
+      </div>
+      <div class="metric"><span class="metric-label">Errors</span><span class="metric-value mono">${src.errorCount}</span></div>
+      ${src.lastError ? `<div class="metric"><span class="metric-label">Last Error</span><div class="metric-value mono" style="font-size:.8rem;color:var(--red)">${esc(src.lastError)}</div></div>` : ''}
+      ${errors.length > 0 ? `<ul class="error-list">${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}
+    </div>`;
+}
+
+function esc(s) {
+  const el = document.createElement('span');
+  el.textContent = s;
+  return el.innerHTML;
+}
+
+function toast(msg, ok) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${ok ? 'toast-ok' : 'toast-err'}`;
+  setTimeout(() => el.className = 'toast', 3000);
+}
+
+async function loadDashboard() {
+  try {
+    const [health, ingestion, overview] = await Promise.all([
+      fetch(`${BASE}/api/health`).then(r => r.json()),
+      fetch(`${BASE}/api/powerbi/ingestion-status`).then(r => r.json()),
+      fetch(`${BASE}/api/powerbi/overview`).then(r => r.ok ? r.json() : null)
+    ]);
+
+    // Service card
+    document.getElementById('serviceBadge').outerHTML = badge(health.status === 'ok' ? 'healthy' : 'failed');
+    document.getElementById('uptime').textContent = fmtUptime(health.uptimeSeconds);
+    document.getElementById('tenantId').textContent = health.tenantId || '—';
+
+    // Refresh card
+    document.getElementById('refreshBadge').outerHTML = `<span class="badge badge-${ingestion.lastRefreshStatus || 'unknown'}" id="refreshBadge">${ingestion.lastRefreshStatus || 'unknown'}</span>`;
+    document.getElementById('refreshTime').textContent = fmtTime(ingestion.lastRefreshTime);
+    document.getElementById('refreshTrigger').textContent = ingestion.lastRefreshTrigger || '—';
+    document.getElementById('hasSnapshot').textContent = ingestion.hasSnapshot ? 'Available' : 'None';
+
+    // Scores
+    if (overview) {
+      const m365 = overview.secureScores?.m365ScorePct;
+      const cloud = overview.secureScores?.cloudScorePct;
+      document.getElementById('m365Pct').textContent = m365 != null ? `${m365}%` : 'N/A';
+      document.getElementById('m365Fill').style.width = m365 != null ? `${m365}%` : '0';
+      document.getElementById('m365Fill').style.background = scoreColor(m365);
+      document.getElementById('cloudPct').textContent = cloud != null ? `${cloud}%` : 'N/A';
+      document.getElementById('cloudFill').style.width = cloud != null ? `${cloud}%` : '0';
+      document.getElementById('cloudFill').style.background = scoreColor(cloud);
+      document.getElementById('recCount').textContent = overview.recommendationCount ?? '—';
+    }
+
+    // Source health
+    const ss = ingestion.sourceStatus || {};
+    const sources = [
+      ['Microsoft Defender', ss.defender],
+      ['Microsoft Graph', ss.graph],
+      ['MCP Bridge', ss.mcpBridge]
+    ].filter(([, v]) => v);
+    document.getElementById('sourceHealth').innerHTML = sources.map(([n, s]) => renderSource(n, s)).join('');
+
+    // Error rollup
+    const allErrors = sources.flatMap(([name, s]) =>
+      (s.details || []).filter(d => d && d.trim().length > 0).map(d => `${name}: ${d}`)
+    );
+    const errorCard = document.getElementById('errorCard');
+    if (allErrors.length > 0) {
+      errorCard.style.display = '';
+      document.getElementById('errorList').innerHTML = allErrors.map(e => `<li>${esc(e)}</li>`).join('');
+    } else {
+      errorCard.style.display = 'none';
+    }
+  } catch (err) {
+    toast('Failed to load dashboard data', false);
+  }
+}
+
+async function triggerRefresh() {
+  const btn = document.getElementById('refreshBtn');
+  const ind = document.getElementById('refreshingIndicator');
+  btn.disabled = true;
+  ind.classList.add('active');
+  try {
+    const resp = await fetch(`${BASE}/api/admin/refresh`, { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      toast(`Refresh complete — ${data.recommendationCount} recommendations`, true);
+    } else {
+      toast(data.message || 'Refresh failed', false);
+    }
+    await loadDashboard();
+  } catch (err) {
+    toast('Refresh request failed', false);
+  } finally {
+    btn.disabled = false;
+    ind.classList.remove('active');
+  }
+}
+
+function startPolling() {
+  stopPolling();
+  polling = setInterval(loadDashboard, 30000);
+}
+
+function stopPolling() {
+  if (polling) { clearInterval(polling); polling = null; }
+}
+
+document.getElementById('autoRefresh').addEventListener('change', function () {
+  this.checked ? startPolling() : stopPolling();
+});
+
+loadDashboard();
+startPolling();
+</script>
+</body>
+</html>

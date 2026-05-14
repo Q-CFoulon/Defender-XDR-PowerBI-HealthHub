@@ -162,7 +162,9 @@ const normalizeProgramInitiatives = (raw: unknown): ProgramInitiative[] => {
         toString(record.name) ||
         toString(record.title) ||
         toString(record.initiativeName) ||
+        toString(record.recommendationName) ||
         toString(record.category) ||
+        toString(record.productName) ||
         "Unknown";
 
       const currentScorePct =
@@ -170,6 +172,7 @@ const normalizeProgramInitiatives = (raw: unknown): ProgramInitiative[] => {
         toNumber(record.currentScore) ??
         toNumber(record.scorePct) ??
         toNumber(record.score) ??
+        toNumber(record.severityScore) ??
         toNumber(record.currentPercentage);
 
       const targetScorePct =
@@ -183,6 +186,7 @@ const normalizeProgramInitiatives = (raw: unknown): ProgramInitiative[] => {
         toNumber(record.trendDelta) ??
         toNumber(record.delta) ??
         toNumber(record.change14Days) ??
+        toNumber(record.exposureImpact) ??
         0;
 
       return {
@@ -209,18 +213,22 @@ const normalizeTopInitiatives = (raw: unknown): TopInitiative[] => {
         toString(record.name) ||
         toString(record.title) ||
         toString(record.initiativeName) ||
+        toString(record.recommendationName) ||
         "Unknown";
 
       const scorePct =
         toNumber(record.scorePct) ??
         toNumber(record.currentScorePct) ??
         toNumber(record.score) ??
+        toNumber(record.cvssV3) ??
+        toNumber(record.severityScore) ??
         null;
 
       const trendDeltaPct =
         toNumber(record.trendDeltaPct) ??
         toNumber(record.trendDelta) ??
         toNumber(record.delta) ??
+        toNumber(record.exposureImpact) ??
         0;
 
       return {

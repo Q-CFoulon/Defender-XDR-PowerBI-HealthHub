@@ -135,6 +135,7 @@ $graphPermissions = @("SecurityEvents.Read.All")
 $defenderPermissions = @(
     "Vulnerability.Read.All",
     "SecurityRecommendation.Read.All",
+    "Score.Read.All",
     "Machine.ReadWrite.All"
 )
 
@@ -224,10 +225,10 @@ CLIENT_SECRET=$clientSecret
 
 DEFENDER_API_BASE_URL=https://api.security.microsoft.com
 DEFENDER_SCOPE=https://api.security.microsoft.com/.default
-DEFENDER_INITIATIVES_PATH=/api/exposure/v1/initiatives
-DEFENDER_TOP_INITIATIVES_PATH=/api/exposure/v1/topInitiatives
-DEFENDER_VULNERABILITY_OVERVIEW_PATH=/api/exposure/v1/overview
-DEFENDER_CLOUD_SCORE_PATH=/api/exposure/v1/secureScores
+DEFENDER_INITIATIVES_PATH=/api/recommendations
+DEFENDER_TOP_INITIATIVES_PATH=/api/vulnerabilities?`$top=10
+DEFENDER_VULNERABILITY_OVERVIEW_PATH=/api/exposureScore
+DEFENDER_CLOUD_SCORE_PATH=/api/configurationScore
 
 GRAPH_API_BASE_URL=https://graph.microsoft.com/v1.0
 GRAPH_SCOPE=https://graph.microsoft.com/.default

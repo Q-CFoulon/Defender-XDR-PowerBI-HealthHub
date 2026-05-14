@@ -8,6 +8,10 @@ const appBaseDirectory =
     : path.resolve(__dirname, "..", "..");
 
 dotenv.config({
+  path: path.join(appBaseDirectory, ".env.local")
+});
+
+dotenv.config({
   path: path.join(appBaseDirectory, ".env")
 });
 
@@ -64,10 +68,10 @@ export const config: AppConfig = {
   clientSecret: requiredEnv("CLIENT_SECRET"),
   defenderApiBaseUrl: optionalEnv("DEFENDER_API_BASE_URL", "https://api.security.microsoft.com"),
   defenderScope: optionalEnv("DEFENDER_SCOPE", "https://api.security.microsoft.com/.default"),
-  defenderInitiativesPath: optionalEnv("DEFENDER_INITIATIVES_PATH", "/api/exposure/v1/initiatives"),
-  defenderTopInitiativesPath: optionalEnv("DEFENDER_TOP_INITIATIVES_PATH", "/api/exposure/v1/topInitiatives"),
-  defenderVulnerabilityOverviewPath: optionalEnv("DEFENDER_VULNERABILITY_OVERVIEW_PATH", "/api/exposure/v1/overview"),
-  defenderCloudScorePath: optionalEnv("DEFENDER_CLOUD_SCORE_PATH", "/api/exposure/v1/secureScores"),
+  defenderInitiativesPath: optionalEnv("DEFENDER_INITIATIVES_PATH", "/api/recommendations"),
+  defenderTopInitiativesPath: optionalEnv("DEFENDER_TOP_INITIATIVES_PATH", "/api/vulnerabilities?$top=10"),
+  defenderVulnerabilityOverviewPath: optionalEnv("DEFENDER_VULNERABILITY_OVERVIEW_PATH", "/api/exposureScore"),
+  defenderCloudScorePath: optionalEnv("DEFENDER_CLOUD_SCORE_PATH", "/api/configurationScore"),
   graphApiBaseUrl: optionalEnv("GRAPH_API_BASE_URL", "https://graph.microsoft.com/v1.0"),
   graphScope: optionalEnv("GRAPH_SCOPE", "https://graph.microsoft.com/.default"),
   graphSecureScoresPath: optionalEnv("GRAPH_SECURE_SCORES_PATH", "/security/secureScores?$top=1"),

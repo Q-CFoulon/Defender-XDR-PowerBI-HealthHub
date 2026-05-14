@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Defender XDR Health Hub</title>
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1c2128; --border: #30363d;
+  --text: #e6edf3; --text-muted: #8b949e; --text-dim: #484f58;
+  --green: #3fb950; --yellow: #d29922; --red: #f85149; --blue: #58a6ff; --purple: #bc8cff;
+  --green-bg: rgba(63,185,80,.12); --yellow-bg: rgba(210,153,34,.12);
+  --red-bg: rgba(248,81,73,.12); --blue-bg: rgba(88,166,255,.12);
+  --purple-bg: rgba(188,140,255,.12); --gray-bg: rgba(139,148,158,.12);
+  --radius: 8px; --sidebar-w: 240px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; display: flex; min-height: 100vh; }
+
+/* ---- Sidebar ---- */
+.sidebar { width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 10; }
+.sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid var(--border); }
+.sidebar-brand h1 { font-size: 1rem; font-weight: 700; line-height: 1.3; }
+.sidebar-brand .sub { font-size: .7rem; color: var(--text-muted); margin-top: 2px; }
+.sidebar-nav { flex: 1; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: .85rem; font-weight: 500; color: var(--text-muted); border: none; background: none; width: 100%; text-align: left; transition: background .15s, color .15s; }
+.nav-item:hover { background: var(--gray-bg); color: var(--text); }
+.nav-item.active { background: var(--blue-bg); color: var(--blue); }
+.nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid var(--border); font-size: .7rem; color: var(--text-dim); }
+
+/* ---- Main ---- */
+.main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface); position: sticky; top: 0; z-index: 5; }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-left h2 { font-size: 1.1rem; font-weight: 600; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; }
+.status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+.status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.status-dot.gray { background: var(--text-dim); }
+.topbar-meta { font-size: .75rem; color: var(--text-muted); }
+
+.content { flex: 1; padding: 24px; overflow-y: auto; }
+
+/* ---- Buttons ---- */
+button, .btn { border: none; padding: 7px 16px; border-radius: 6px; font-size: .8rem; font-weight: 600; cursor: pointer; transition: opacity .15s; display: inline-flex; align-items: center; gap: 6px; }
+button:hover, .btn:hover { opacity: .85; }
+button:disabled { opacity: .4; cursor: not-allowed; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: .75rem; }
+.btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--text-muted); }
+
+/* ---- Cards & Grid ---- */
+.grid { display: grid; gap: 16px; margin-bottom: 24px; }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.card-title { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
+
+/* ---- Badges ---- */
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 12px; font-size: .7rem; font-weight: 600; white-space: nowrap; }
+.badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.badge-healthy, .badge-success, .badge-ok { background: var(--green-bg); color: var(--green); }
+.badge-healthy::before, .badge-success::before, .badge-ok::before { background: var(--green); }
+.badge-degraded, .badge-partial { background: var(--yellow-bg); color: var(--yellow); }
+.badge-degraded::before, .badge-partial::before { background: var(--yellow); }
+.badge-failed { background: var(--red-bg); color: var(--red); }
+.badge-failed::before { background: var(--red); }
+.badge-disabled, .badge-unknown, .badge-never { background: var(--gray-bg); color: var(--text-muted); }
+.badge-disabled::before, .badge-unknown::before, .badge-never::before { background: var(--text-dim); }
+.badge-high { background: var(--red-bg); color: var(--red); }
+.badge-high::before { background: var(--red); }
+.badge-medium { background: var(--yellow-bg); color: var(--yellow); }
+.badge-medium::before { background: var(--yellow); }
+.badge-low { background: var(--blue-bg); color: var(--blue); }
+.badge-low::before { background: var(--blue); }
+
+/* ---- Metrics ---- */
+.metric { margin-bottom: 8px; }
+.metric-label { font-size: .7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .3px; }
+.metric-value { font-size: 1.4rem; font-weight: 700; }
+.metric-value.mono { font-family: 'SF Mono', Consolas, monospace; font-size: .95rem; }
+.metric-value.small { font-size: 1rem; }
+.metric-row { display: flex; gap: 24px; flex-wrap: wrap; }
+
+/* ---- Score Bars ---- */
+.score-bar { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.score-track { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.score-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.score-pct { font-size: .85rem; font-weight: 700; min-width: 44px; text-align: right; }
+
+/* ---- Source Health ---- */
+.source-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.source-row:last-child { border-bottom: none; }
+.source-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 700; flex-shrink: 0; }
+.source-info { flex: 1; min-width: 0; }
+.source-name { font-weight: 600; font-size: .9rem; }
+.source-detail { font-size: .75rem; color: var(--text-muted); }
+
+/* ---- Tables ---- */
+.data-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.data-table th { text-align: left; padding: 8px 12px; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; color: var(--text-muted); border-bottom: 2px solid var(--border); white-space: nowrap; }
+.data-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.data-table tr:hover td { background: var(--gray-bg); }
+.data-table .num { text-align: right; font-family: 'SF Mono', Consolas, monospace; }
+.data-table .wrap { max-width: 400px; word-break: break-word; }
+.data-table a { color: var(--blue); text-decoration: none; }
+.data-table a:hover { text-decoration: underline; }
+
+/* ---- Error List ---- */
+.error-strip { list-style: none; }
+.error-strip li { font-size: .78rem; font-family: 'SF Mono', Consolas, monospace; color: var(--red); padding: 6px 10px; background: var(--red-bg); border-radius: 4px; margin-bottom: 4px; word-break: break-all; display: flex; gap: 8px; }
+.error-strip li .tag { color: var(--text-muted); flex-shrink: 0; }
+
+/* ---- Page sections ---- */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ---- Trend arrows ---- */
+.trend-up { color: var(--green); } .trend-up::before { content: '▲ '; }
+.trend-down { color: var(--red); } .trend-down::before { content: '▼ '; }
+.trend-flat { color: var(--text-muted); } .trend-flat::before { content: '— '; }
+
+/* ---- Toast ---- */
+.toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: var(--radius); font-size: .85rem; font-weight: 500; z-index: 100; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.toast.show { opacity: 1; }
+.toast-ok { background: var(--green-bg); color: var(--green); border: 1px solid var(--green); }
+.toast-err { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
+
+/* ---- Empty / Loading ---- */
+.empty-state { color: var(--text-dim); font-size: .85rem; font-style: italic; padding: 24px; text-align: center; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; }
+  .grid-3, .grid-2 { grid-template-columns: 1fr; }
+  .data-table { font-size: .75rem; }
+  .data-table th, .data-table td { padding: 6px 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== SIDEBAR ===== -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <h1>Defender XDR<br/>Health Hub</h1>
+    <div class="sub" id="tenantLabel">—</div>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1.5l-6.5 6v7a.5.5 0 00.5.5h4v-4h4v4h4a.5.5 0 00.5-.5v-7L8 1.5z"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-item" data-page="scores" onclick="navigate('scores')">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 14V5h3v9H2zm4.5 0V2h3v12h-3zM11 14V8h3v6h-3z"/></svg>
+      Secure Scores
+    </button>
+    <button class="nav-item" data-page="initiatives" onclick="navigate('initiatives')">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zm.75 11.25h-1.5v-1.5h1.5v1.5zm0-3h-1.5v-4h1.5v4z"/></svg>
+      Initiatives
+    </button>
+    <button class="nav-item" data-page="recommendations" onclick="navigate('recommendations')">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a3 3 0 00-3 3c0 1.11.6 2.08 1.5 2.6V9h3V6.6A3 3 0 008 1zM6.5 10v1.5a1.5 1.5 0 003 0V10h-3z"/></svg>
+      Recommendations
+    </button>
+    <button class="nav-item" data-page="errors" onclick="navigate('errors')">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 14h14L8 1zm-.75 5h1.5v4h-1.5V6zm0 5h1.5v1.5h-1.5V11z"/></svg>
+      Errors
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div>Auto-refresh: <label><input type="checkbox" id="autoRefreshToggle" checked /> 30 s</label></div>
+    <div id="lastPoll" style="margin-top:4px">—</div>
+  </div>
+</aside>
+
+<!-- ===== MAIN ===== -->
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="status-dot gray" id="globalDot"></div>
+      <h2 id="pageTitle">Dashboard</h2>
+    </div>
+    <div class="topbar-right">
+      <span class="topbar-meta" id="uptimeMeta">—</span>
+      <button class="btn btn-primary" id="refreshBtn" onclick="triggerRefresh()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 014.546 2.914l1.378-.69A6.5 6.5 0 001.5 8h2A4.5 4.5 0 018 3zm4.5 5a4.5 4.5 0 01-8.546 1.086l-1.378.69A6.5 6.5 0 0014.5 8h-2z"/></svg>
+        Refresh Now
+      </button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- ========== DASHBOARD PAGE ========== -->
+    <div class="page active" id="page-dashboard">
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-header"><span class="card-title">Service Status</span><span id="serviceBadge"></span></div>
+          <div class="metric"><span class="metric-label">Uptime</span><div class="metric-value mono" id="uptime">—</div></div>
+          <div class="metric"><span class="metric-label">Tenant ID</span><div class="metric-value mono small" id="tenantId" style="font-size:.75rem;word-break:break-all">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Last Refresh</span><span id="refreshBadge"></span></div>
+          <div class="metric"><span class="metric-label">Time</span><div class="metric-value mono small" id="refreshTime">—</div></div>
+          <div class="metric"><span class="metric-label">Trigger</span><div class="metric-value mono small" id="refreshTrigger">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Data Snapshot</span></div>
+          <div class="metric"><span class="metric-label">Snapshot</span><div class="metric-value" id="snapshotStatus">—</div></div>
+          <div class="metric"><span class="metric-label">Collected At</span><div class="metric-value mono small" id="collectedAt">—</div></div>
+        </div>
+      </div>
+
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-header"><span class="card-title">M365 Secure Score</span></div>
+          <div class="score-bar"><div class="score-track"><div class="score-fill" id="m365Fill" style="width:0;background:var(--text-dim)"></div></div><span class="score-pct" id="m365Pct">—</span></div>
+          <div class="metric" style="margin-top:8px"><span class="metric-label">Score</span><div class="metric-value mono small" id="m365Raw">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Cloud Secure Score</span></div>
+          <div class="score-bar"><div class="score-track"><div class="score-fill" id="cloudFill" style="width:0;background:var(--text-dim)"></div></div><span class="score-pct" id="cloudPct">—</span></div>
+          <div class="metric" style="margin-top:8px"><span class="metric-label">Score</span><div class="metric-value mono small" id="cloudRaw">—</div></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Recommendations</span></div>
+          <div class="metric-value" id="recCount" style="font-size:2rem;text-align:center;padding:12px 0">—</div>
+          <div class="metric-label" style="text-align:center">remediation items</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Source Health</span></div>
+        <div id="sourceHealth"><p class="empty-state">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- ========== SCORES PAGE ========== -->
+    <div class="page" id="page-scores">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header"><span class="card-title">M365 Secure Score</span></div>
+          <div class="score-bar" style="margin-bottom:12px"><div class="score-track" style="height:12px"><div class="score-fill" id="s_m365Fill" style="width:0;background:var(--text-dim);height:12px;border-radius:6px"></div></div><span class="score-pct" style="font-size:1.2rem" id="s_m365Pct">—</span></div>
+          <div class="metric-row">
+            <div class="metric"><span class="metric-label">Current</span><div class="metric-value mono" id="s_m365Cur">—</div></div>
+            <div class="metric"><span class="metric-label">Max Possible</span><div class="metric-value mono" id="s_m365Max">—</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Cloud Secure Score</span></div>
+          <div class="score-bar" style="margin-bottom:12px"><div class="score-track" style="height:12px"><div class="score-fill" id="s_cloudFill" style="width:0;background:var(--text-dim);height:12px;border-radius:6px"></div></div><span class="score-pct" style="font-size:1.2rem" id="s_cloudPct">—</span></div>
+          <div class="metric-row">
+            <div class="metric"><span class="metric-label">Current</span><div class="metric-value mono" id="s_cloudCur">—</div></div>
+            <div class="metric"><span class="metric-label">Target</span><div class="metric-value mono" id="s_cloudTarget">—</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Vulnerability Overview</span></div>
+        <div class="grid grid-3" style="margin-bottom:0">
+          <div class="metric"><span class="metric-label">Exposure Score</span><div class="metric-value" id="v_exposureScore">—</div></div>
+          <div class="metric"><span class="metric-label">Exposure Level</span><div class="metric-value" id="v_exposureLevel">—</div></div>
+          <div class="metric"><span class="metric-label">Critical Vulns</span><div class="metric-value" style="color:var(--red)" id="v_critVulns">—</div></div>
+        </div>
+        <div class="grid grid-3" style="margin-bottom:0;margin-top:12px">
+          <div class="metric"><span class="metric-label">Active Recommendations</span><div class="metric-value" id="v_activeRecs">—</div></div>
+          <div class="metric"><span class="metric-label">Devices — Low</span><div class="metric-value" style="color:var(--blue)" id="v_devLow">—</div></div>
+          <div class="metric"><span class="metric-label">Devices — Medium / High</span><div class="metric-value" id="v_devMedHigh">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== INITIATIVES PAGE ========== -->
+    <div class="page" id="page-initiatives">
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header"><span class="card-title">Program Initiatives</span></div>
+        <div id="programTable"><p class="empty-state">Loading…</p></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Top Initiatives</span></div>
+        <div id="topTable"><p class="empty-state">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- ========== RECOMMENDATIONS PAGE ========== -->
+    <div class="page" id="page-recommendations">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Remediation Recommendations</span>
+          <div style="display:flex;gap:6px" id="recFilters"></div>
+        </div>
+        <div id="recTable"><p class="empty-state">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- ========== ERRORS PAGE ========== -->
+    <div class="page" id="page-errors">
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-header"><span class="card-title">Ingestion Error Summary</span></div>
+        <div id="errorSummary"><p class="empty-state">Loading…</p></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">All Errors</span></div>
+        <ul class="error-strip" id="errorList"></ul>
+        <div id="noErrors" class="empty-state" style="display:none">No errors in the current snapshot.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ======= GLOBALS ======= */
+const BASE = window.location.origin;
+let polling = null;
+let activeFilter = 'all';
+let cachedRecs = [];
+
+/* ======= NAVIGATION ======= */
+const pageTitles = { dashboard: 'Dashboard', scores: 'Secure Scores', initiatives: 'Initiatives', recommendations: 'Recommendations', errors: 'Errors' };
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
+  document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+}
+
+/* ======= HELPERS ======= */
+function esc(s) { const el = document.createElement('span'); el.textContent = s; return el.innerHTML; }
+
+function badge(status) { return `<span class="badge badge-${status || 'unknown'}">${status || 'unknown'}</span>`; }
+
+function scoreColor(pct) {
+  if (pct == null) return 'var(--text-dim)';
+  if (pct >= 80) return 'var(--green)';
+  if (pct >= 50) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString();
+}
+
+function fmtUptime(s) {
+  if (s == null) return '—';
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  return d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m`;
+}
+
+function pctDisplay(v) { return v != null ? `${v.toFixed(1)}%` : 'N/A'; }
+
+function toast(msg, ok) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${ok ? 'toast-ok' : 'toast-err'}`;
+  setTimeout(() => el.className = 'toast', 3500);
+}
+
+function setScore(fillId, pctId, val) {
+  const el = document.getElementById(fillId);
+  const lbl = document.getElementById(pctId);
+  lbl.textContent = pctDisplay(val);
+  el.style.width = val != null ? `${Math.min(val, 100)}%` : '0';
+  el.style.background = scoreColor(val);
+}
+
+function statusDotClass(status) {
+  if (status === 'success' || status === 'ok' || status === 'healthy') return 'green';
+  if (status === 'partial' || status === 'degraded') return 'yellow';
+  if (status === 'failed') return 'red';
+  return 'gray';
+}
+
+function sourceIcon(name) {
+  const map = { defender: { bg: 'var(--blue-bg)', color: 'var(--blue)', letter: 'D' }, graph: { bg: 'var(--purple-bg)', color: 'var(--purple)', letter: 'G' }, mcpBridge: { bg: 'var(--yellow-bg)', color: 'var(--yellow)', letter: 'M' } };
+  const c = map[name] || { bg: 'var(--gray-bg)', color: 'var(--text-muted)', letter: '?' };
+  return `<div class="source-icon" style="background:${c.bg};color:${c.color}">${c.letter}</div>`;
+}
+
+const friendlySource = { defender: 'Microsoft Defender', graph: 'Microsoft Graph', mcpBridge: 'MCP Bridge' };
+
+/* ======= API CALLS ======= */
+async function api(path) {
+  const r = await fetch(`${BASE}${path}`);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+/* ======= RENDER: DASHBOARD ======= */
+function renderDashboard(health, ingestion, overview) {
+  // Service status
+  const svcStatus = health?.status === 'ok' ? 'healthy' : 'failed';
+  document.getElementById('serviceBadge').innerHTML = badge(svcStatus);
+  document.getElementById('uptime').textContent = fmtUptime(health?.uptimeSeconds);
+  document.getElementById('tenantId').textContent = health?.tenantId || '—';
+  document.getElementById('tenantLabel').textContent = health?.tenantId ? `Tenant: ${health.tenantId.slice(0,8)}…` : '—';
+  document.getElementById('uptimeMeta').textContent = `Up ${fmtUptime(health?.uptimeSeconds)}`;
+
+  // Global dot
+  const dot = document.getElementById('globalDot');
+  dot.className = `status-dot ${statusDotClass(ingestion?.lastRefreshStatus)}`;
+
+  // Refresh info
+  document.getElementById('refreshBadge').innerHTML = badge(ingestion?.lastRefreshStatus || 'never');
+  document.getElementById('refreshTime').textContent = fmtTime(ingestion?.lastRefreshTime);
+  document.getElementById('refreshTrigger').textContent = ingestion?.lastRefreshTrigger || '—';
+
+  // Snapshot
+  document.getElementById('snapshotStatus').textContent = ingestion?.hasSnapshot ? 'Available' : 'None';
+  document.getElementById('snapshotStatus').style.color = ingestion?.hasSnapshot ? 'var(--green)' : 'var(--text-dim)';
+  document.getElementById('collectedAt').textContent = fmtTime(ingestion?.latestCollectionTime);
+
+  // Scores (dashboard cards)
+  const ss = overview?.secureScores;
+  setScore('m365Fill', 'm365Pct', ss?.m365ScorePct);
+  setScore('cloudFill', 'cloudPct', ss?.cloudScorePct);
+  document.getElementById('m365Raw').textContent = ss ? `${ss.m365CurrentScore ?? '—'} / ${ss.m365MaxScore ?? '—'}` : '—';
+  document.getElementById('cloudRaw').textContent = ss ? `${ss.cloudCurrentScore ?? '—'} / ${ss.cloudTargetScore ?? '—'}` : '—';
+  document.getElementById('recCount').textContent = overview?.recommendationCount ?? '—';
+
+  // Source health
+  const sources = ingestion?.sourceStatus || {};
+  const html = Object.entries(sources).map(([key, s]) => `
+    <div class="source-row">
+      ${sourceIcon(key)}
+      <div class="source-info">
+        <div class="source-name">${esc(friendlySource[key] || key)}</div>
+        <div class="source-detail">${s.errorCount} error${s.errorCount !== 1 ? 's' : ''}${s.lastError ? ' · ' + esc(s.lastError) : ''}</div>
+      </div>
+      ${badge(s.status)}
+    </div>
+  `).join('');
+  document.getElementById('sourceHealth').innerHTML = html || '<p class="empty-state">No source data</p>';
+}
+
+/* ======= RENDER: SCORES ======= */
+function renderScores(overview) {
+  const ss = overview?.secureScores;
+  setScore('s_m365Fill', 's_m365Pct', ss?.m365ScorePct);
+  setScore('s_cloudFill', 's_cloudPct', ss?.cloudScorePct);
+  document.getElementById('s_m365Cur').textContent = ss?.m365CurrentScore ?? '—';
+  document.getElementById('s_m365Max').textContent = ss?.m365MaxScore ?? '—';
+  document.getElementById('s_cloudCur').textContent = ss?.cloudCurrentScore ?? '—';
+  document.getElementById('s_cloudTarget').textContent = ss?.cloudTargetScore ?? '—';
+
+  const v = overview?.vulnerabilityOverview;
+  document.getElementById('v_exposureScore').textContent = v?.exposureScore ?? '—';
+  document.getElementById('v_exposureLevel').textContent = v?.exposureLevel ?? '—';
+  document.getElementById('v_critVulns').textContent = v?.criticalVulnerabilities ?? '—';
+  document.getElementById('v_activeRecs').textContent = v?.activeRecommendations ?? '—';
+  const dd = v?.deviceExposureDistribution;
+  document.getElementById('v_devLow').textContent = dd?.low ?? '—';
+  document.getElementById('v_devMedHigh').textContent = dd ? `${dd.medium} / ${dd.high}` : '—';
+}
+
+/* ======= RENDER: INITIATIVES ======= */
+function renderInitiatives(program, top) {
+  if (program && program.length > 0) {
+    document.getElementById('programTable').innerHTML = `<table class="data-table"><thead><tr><th>Initiative</th><th class="num">Current %</th><th class="num">Target %</th><th class="num">Δ %</th><th>Trend</th></tr></thead><tbody>` +
+      program.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${pctDisplay(i.currentScorePct)}</td><td class="num">${pctDisplay(i.targetScorePct)}</td><td class="num">${i.trendDeltaPct != null ? i.trendDeltaPct.toFixed(1) : '—'}</td><td><span class="trend-${i.trendDirection || 'flat'}">${i.trendDirection || 'flat'}</span></td></tr>`).join('') +
+      `</tbody></table>`;
+  } else {
+    document.getElementById('programTable').innerHTML = '<p class="empty-state">No program initiatives available. This may require Defender exposure management licensing.</p>';
+  }
+
+  if (top && top.length > 0) {
+    document.getElementById('topTable').innerHTML = `<table class="data-table"><thead><tr><th>Initiative</th><th class="num">Score %</th><th class="num">Δ %</th></tr></thead><tbody>` +
+      top.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${pctDisplay(i.scorePct)}</td><td class="num">${i.trendDeltaPct != null ? i.trendDeltaPct.toFixed(1) : '—'}</td></tr>`).join('') +
+      `</tbody></table>`;
+  } else {
+    document.getElementById('topTable').innerHTML = '<p class="empty-state">No top initiatives available.</p>';
+  }
+}
+
+/* ======= RENDER: RECOMMENDATIONS ======= */
+function renderRecommendations(recs) {
+  cachedRecs = recs || [];
+  const priorities = ['all', 'high', 'medium', 'low'];
+  document.getElementById('recFilters').innerHTML = priorities.map(p =>
+    `<button class="btn btn-sm ${activeFilter === p ? 'btn-primary' : 'btn-ghost'}" onclick="filterRecs('${p}')">${p === 'all' ? 'All' : p.charAt(0).toUpperCase() + p.slice(1)}</button>`
+  ).join('');
+  applyRecFilter();
+}
+
+function filterRecs(f) { activeFilter = f; renderRecommendations(cachedRecs); }
+
+function applyRecFilter() {
+  const list = activeFilter === 'all' ? cachedRecs : cachedRecs.filter(r => r.priority === activeFilter);
+  if (list.length === 0) {
+    document.getElementById('recTable').innerHTML = '<p class="empty-state">No recommendations match the current filter.</p>';
+    return;
+  }
+  document.getElementById('recTable').innerHTML = `<table class="data-table"><thead><tr><th>Priority</th><th>Source</th><th>Title</th><th class="wrap">Description</th><th>Risk Area</th><th>Link</th></tr></thead><tbody>` +
+    list.map(r => `<tr>
+      <td>${badge(r.priority)}</td>
+      <td style="white-space:nowrap">${esc(r.source)}</td>
+      <td style="font-weight:600">${esc(r.title)}</td>
+      <td class="wrap">${esc(r.description)}</td>
+      <td>${esc(r.relatedRiskArea)}</td>
+      <td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">View</a>` : '—'}</td>
+    </tr>`).join('') +
+    `</tbody></table>`;
+}
+
+/* ======= RENDER: ERRORS ======= */
+function renderErrors(ingestion) {
+  const sources = ingestion?.sourceStatus || {};
+  const summary = Object.entries(sources).map(([key, s]) => `
+    <div class="source-row">
+      ${sourceIcon(key)}
+      <div class="source-info">
+        <div class="source-name">${esc(friendlySource[key] || key)}</div>
+        <div class="source-detail">${s.errorCount} error${s.errorCount !== 1 ? 's' : ''}</div>
+      </div>
+      ${badge(s.status)}
+    </div>
+  `).join('');
+  document.getElementById('errorSummary').innerHTML = summary || '<p class="empty-state">No source data</p>';
+
+  const allErrors = Object.entries(sources).flatMap(([key, s]) =>
+    (s.details || []).filter(d => d && d.trim().length > 0).map(d => ({ source: key, msg: d }))
+  );
+  if (allErrors.length > 0) {
+    document.getElementById('errorList').innerHTML = allErrors.map(e =>
+      `<li><span class="tag">[${esc(friendlySource[e.source] || e.source)}]</span>${esc(e.msg)}</li>`
+    ).join('');
+    document.getElementById('noErrors').style.display = 'none';
+  } else {
+    document.getElementById('errorList').innerHTML = '';
+    document.getElementById('noErrors').style.display = '';
+  }
+}
+
+/* ======= MASTER LOAD ======= */
+async function loadAll() {
+  try {
+    const [health, ingestion, overview, program, top, recs] = await Promise.all([
+      api('/api/health'),
+      api('/api/powerbi/ingestion-status'),
+      api('/api/powerbi/overview'),
+      api('/api/powerbi/program-initiatives'),
+      api('/api/powerbi/top-initiatives'),
+      api('/api/powerbi/remediation-recommendations')
+    ]);
+    renderDashboard(health, ingestion, overview);
+    renderScores(overview);
+    renderInitiatives(program, top);
+    renderRecommendations(recs);
+    renderErrors(ingestion);
+    document.getElementById('lastPoll').textContent = `Last polled: ${new Date().toLocaleTimeString()}`;
+  } catch (err) {
+    toast('Failed to load data', false);
+  }
+}
+
+/* ======= REFRESH ======= */
+async function triggerRefresh() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Refreshing…';
+  try {
+    const resp = await fetch(`${BASE}/api/admin/refresh`, { method: 'POST' });
+    const data = await resp.json();
+    if (data.ok) {
+      toast(`Refresh complete — ${data.recommendationCount} recommendations`, true);
+    } else {
+      toast(data.message || 'Refresh failed', false);
+    }
+    await loadAll();
+  } catch (err) {
+    toast('Refresh request failed', false);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3a5 5 0 014.546 2.914l1.378-.69A6.5 6.5 0 001.5 8h2A4.5 4.5 0 018 3zm4.5 5a4.5 4.5 0 01-8.546 1.086l-1.378.69A6.5 6.5 0 0014.5 8h-2z"/></svg> Refresh Now';
+  }
+}
+
+/* ======= POLLING ======= */
+function startPolling() { stopPolling(); polling = setInterval(loadAll, 30000); }
+function stopPolling() { if (polling) { clearInterval(polling); polling = null; } }
+
+document.getElementById('autoRefreshToggle').addEventListener('change', function () {
+  this.checked ? startPolling() : stopPolling();
+});
+
+/* ======= INIT ======= */
+loadAll();
+startPolling();
+</script>
+</body>
+</html>

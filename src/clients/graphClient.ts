@@ -1,8 +1,34 @@
 import axios from "axios";
 import type { AppConfig } from "../config/env";
 import { logger } from "../config/logger";
-import type { GraphRawData } from "../types/domain";
+import type { GraphRawData, SourceErrorDetail } from "../types/domain";
 import { OAuthClient } from "./oauthClient";
+
+const toSourceError = (path: string, error: unknown): SourceErrorDetail => {
+  if (axios.isAxiosError(error)) {
+    return {
+      source: "graph",
+      endpoint: "secureScores",
+      path,
+      statusCode: error.response?.status ?? null,
+      message: error.message
+    };
+  }
+
+  return {
+    source: "graph",
+    endpoint: "secureScores",
+    path,
+    statusCode: null,
+    message: error instanceof Error ? error.message : "Unknown error"
+  };
+};
+
+const buildRequestUrl = (baseUrl: string, endpointPath: string): string => {
+  const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const normalizedPath = endpointPath.replace(/^\/+/, "");
+  return new URL(normalizedPath, normalizedBase).toString();
+};
 
 export class GraphClient {
   public constructor(
@@ -12,7 +38,7 @@ export class GraphClient {
 
   private async callEndpoint(path: string): Promise<unknown> {
     const accessToken = await this.oauthClient.getAccessToken(this.config.graphScope);
-    const requestUrl = new URL(path, this.config.graphApiBaseUrl).toString();
+    const requestUrl = buildRequestUrl(this.config.graphApiBaseUrl, path);
 
     const response = await axios.get(requestUrl, {
       headers: {
@@ -27,15 +53,19 @@ export class GraphClient {
   public async collectRawData(): Promise<GraphRawData> {
     try {
       const secureScores = await this.callEndpoint(this.config.graphSecureScoresPath);
-      return { secureScores };
+      return { secureScores, error: null };
     } catch (error) {
+      const sourceError = toSourceError(this.config.graphSecureScoresPath, error);
+
       logger.warn(
         {
-          errorMessage: error instanceof Error ? error.message : "Unknown error"
+          path: sourceError.path,
+          statusCode: sourceError.statusCode,
+          errorMessage: sourceError.message
         },
         "Graph Secure Score call failed; using empty payload"
       );
-      return { secureScores: null };
+      return { secureScores: null, error: sourceError };
     }
   }
 }

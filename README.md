@@ -52,22 +52,34 @@ Reference: [Get secureScore (Microsoft Graph)](https://learn.microsoft.com/graph
 
 ### Microsoft Defender for Endpoint and Defender XDR APIs
 
-For vulnerability and recommendation data ingestion, common minimum app permissions are:
+The service calls these Defender for Endpoint REST APIs on `https://api.security.microsoft.com`:
 
-- Vulnerability.Read.All
-- SecurityRecommendation.Read.All
-- Machine.ReadWrite.All (or endpoint-specific machine read access where available)
+| Endpoint | Path | Permission |
+| --- | --- | --- |
+| Exposure Score | `GET /api/exposureScore` | Score.Read.All |
+| Device Secure Score | `GET /api/configurationScore` | Score.Read.All |
+| Security Recommendations | `GET /api/recommendations` | SecurityRecommendation.Read.All |
+| Vulnerabilities | `GET /api/vulnerabilities` | Vulnerability.Read.All |
+
+Required application permissions on the **WindowsDefenderATP** resource:
+
+- **Score.Read.All** — Read Threat and Vulnerability Management score (exposure score and device secure score)
+- **Vulnerability.Read.All** — Read Threat and Vulnerability Management vulnerability information
+- **SecurityRecommendation.Read.All** — Read Threat and Vulnerability Management security recommendation information
+- **Machine.ReadWrite.All** — Read and write all machine information (used by MCP remediation bridge when active)
 
 Reference examples:
 
-- [Vulnerabilities API permissions](https://learn.microsoft.com/defender-endpoint/api/get-all-vulnerabilities)
-- [Recommendations API permissions](https://learn.microsoft.com/defender-endpoint/api/get-all-recommendations)
-- [Machines API permissions](https://learn.microsoft.com/defender-endpoint/api/get-machines)
+- [Exposure Score API](https://learn.microsoft.com/defender-endpoint/api/get-exposure-score)
+- [Device Secure Score API](https://learn.microsoft.com/defender-endpoint/api/get-device-secure-score)
+- [Recommendations API](https://learn.microsoft.com/defender-endpoint/api/get-all-recommendations)
+- [Vulnerabilities API](https://learn.microsoft.com/defender-endpoint/api/get-all-vulnerabilities)
+- [Supported API list](https://learn.microsoft.com/defender-endpoint/api/exposed-apis-list)
 - [Defender XDR API access model](https://learn.microsoft.com/defender-xdr/api-access)
 
 Important:
 
-- Some Defender exposure/secure score endpoints may require additional TVM or Defender-specific app permissions depending on tenant licensing and endpoint path.
+- These APIs require Microsoft Defender for Endpoint Plan 1 or Plan 2 licensing.
 - Validate final least-privilege permissions in a pre-production tenant before production rollout.
 
 ### Optional Power BI Push Dataset Permissions
@@ -152,8 +164,10 @@ Minimum host requirements:
 1. Copy environment file:
 
 ```powershell
-Copy-Item .env.example .env
+Copy-Item .env.example .env.local
 ```
+
+For scripts that default to `.env` (for example Windows service install), either copy `.env.local` to `.env` on that machine only, or pass an explicit environment file path to the script.
 
 1. Set at minimum:
 
@@ -168,7 +182,7 @@ Service-related optional variables:
 
 1. Configure optional integrations as needed:
 
-- MCP_BRIDGE_URL and MCP_BRIDGE_API_KEY
+- MCP_BRIDGE_URL and MCP_BRIDGE_API_KEY (leave MCP_BRIDGE_URL empty to disable bridge calls)
 - POWERBI_PUSH_DATASET_URL and POWERBI_PUSH_BEARER_TOKEN
 
 ### 4) Install and validate
@@ -263,6 +277,7 @@ Primary API base URL: `http://your-server-or-ip:4010/api/powerbi`
 
 Power BI endpoints:
 
+- GET /api/powerbi/ingestion-status
 - GET /api/powerbi/overview
 - GET /api/powerbi/program-initiatives
 - GET /api/powerbi/top-initiatives
@@ -273,8 +288,17 @@ Power BI endpoints:
 
 Operational endpoints:
 
+- GET / — Service discovery (JSON)
+- GET /admin — Admin dashboard (browser UI)
 - GET /api/health
 - POST /api/admin/refresh
+
+## Known Issues / Pending Actions
+
+| Issue | Status | Action Required |
+| --- | --- | --- |
+| Defender API returns 403 on all 4 endpoints | **Pending** | A Global Admin or Privileged Role Administrator must grant admin consent for the WindowsDefenderATP permissions (`Score.Read.All`, `SecurityRecommendation.Read.All`, `Vulnerability.Read.All`, `Machine.ReadWrite.All`). Run `.\scripts\Grant-DefenderPermissions.ps1 -ClientId "aea214c1-aef3-4d9b-b6a5-cf6b157cb089"` or grant consent via Azure Portal (Entra ID > App registrations > API permissions > Grant admin consent). See the **403 troubleshooting** section below for full diagnosis steps. |
+| MCP Bridge disabled | **By design** | `MCP_BRIDGE_URL` is empty. Set it to a running MCP bridge endpoint when available. Fallback recommendations are generated automatically. |
 
 ## Troubleshooting Runbook
 
@@ -287,31 +311,96 @@ Checks:
 3. Confirm API permissions are granted and admin consented.
 4. Confirm token scope values in .env are correct.
 
-## Symptom: 403 from Defender or Graph APIs
+## Symptom: 403 or 404 from Defender or Graph APIs
 
-Checks:
+This is the most common deployment issue. A **403** from Defender APIs means the app registration exists and can obtain a token, but the **WindowsDefenderATP** permissions have not been admin-consented.
 
-1. Verify app has required API permissions.
-2. Validate customer licensing supports requested Defender APIs.
-3. Confirm endpoint path is valid for the tenant and service plan.
+### Quick diagnosis
+
+Run this on any machine with Node.js to decode the token and check granted roles:
+
+```powershell
+node -e "
+const axios = require('axios');
+require('dotenv').config({ path: '.env.local' });
+(async () => {
+  const r = await axios.post(
+    'https://login.microsoftonline.com/' + process.env.TENANT_ID + '/oauth2/v2.0/token',
+    new URLSearchParams({ client_id: process.env.CLIENT_ID, client_secret: process.env.CLIENT_SECRET, scope: 'https://api.security.microsoft.com/.default', grant_type: 'client_credentials' }).toString(),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }}
+  );
+  const payload = JSON.parse(Buffer.from(r.data.access_token.split('.')[1], 'base64url').toString());
+  console.log('Audience:', payload.aud);
+  console.log('Roles:', payload.roles || '** NONE — admin consent missing **');
+})();
+"
+```
+
+Expected healthy output:
+
+```
+Audience: https://api.security.microsoft.com
+Roles: [ 'Score.Read.All', 'Vulnerability.Read.All', 'SecurityRecommendation.Read.All', 'Machine.ReadWrite.All' ]
+```
+
+If `Roles` shows `undefined` or is missing permissions, admin consent is needed.
+
+### Fix: Grant admin consent for Defender permissions
+
+Option A — Use the included script (recommended):
+
+```powershell
+.\scripts\Grant-DefenderPermissions.ps1 -ClientId "your-client-id-here"
+```
+
+Option B — Grant consent via Azure Portal:
+
+1. Go to **Entra ID → App registrations → your app → API permissions**.
+2. Confirm these WindowsDefenderATP permissions are listed:
+   - `Score.Read.All`
+   - `SecurityRecommendation.Read.All`
+   - `Vulnerability.Read.All`
+   - `Machine.ReadWrite.All`
+3. Click **Grant admin consent for [tenant]**.
+4. Wait 1–2 minutes for propagation.
+
+Option C — Re-run the full registration script (creates a new secret):
+
+```powershell
+.\scripts\Register-HealthHubEnterpriseApp.ps1
+```
+
+### After granting consent
+
+1. Wait 1–2 minutes for Entra permission propagation.
+2. Trigger a manual refresh: open `/admin` and click **Refresh Now**, or `POST /api/admin/refresh`.
+3. Check the Errors page — Defender errors should clear.
+
+### Additional checks
+
+1. Validate customer licensing supports Defender for Endpoint (Plan 1 or Plan 2 required).
+2. Confirm endpoint paths are valid for the tenant and service plan.
+3. Call `GET /api/powerbi/ingestion-status` and inspect `sourceStatus.defender` for remaining failures.
 
 ## Symptom: No data in Power BI visuals
 
 Checks:
 
 1. Call GET /api/health and verify hasSnapshot is true.
-2. Call GET /api/powerbi/full-snapshot and inspect payload.
-3. Confirm Power BI query points to the right host and port.
-4. Trigger POST /api/admin/refresh and retry Power BI refresh.
+2. Call GET /api/powerbi/ingestion-status and inspect lastRefreshStatus and sourceStatus.
+3. Call GET /api/powerbi/full-snapshot and inspect payload.
+4. Confirm Power BI query points to the right host and port.
+5. Trigger POST /api/admin/refresh and retry Power BI refresh.
 
 ## Symptom: Missing remediation recommendations from MCP sources
 
 Checks:
 
-1. Verify MCP_BRIDGE_URL is reachable from the host.
-2. Verify MCP_BRIDGE_API_KEY is valid.
-3. Verify MCP bridge supports expected servers/capabilities.
-4. If unreachable, fallback recommendations are generated by design.
+1. If using external MCP bridge, verify MCP_BRIDGE_URL is reachable from the host.
+2. If bridge is not required, set MCP_BRIDGE_URL empty to suppress bridge connection warnings.
+3. Verify MCP_BRIDGE_API_KEY is valid when bridge auth is enabled.
+4. Verify MCP bridge supports expected servers/capabilities.
+5. If unreachable, fallback recommendations are generated by design.
 
 ## Symptom: Scheduler not running
 
@@ -360,6 +449,7 @@ When opening a support case, include:
 
 ```powershell
 Invoke-RestMethod http://localhost:4010/api/health
+Invoke-RestMethod http://localhost:4010/api/powerbi/ingestion-status
 Invoke-RestMethod http://localhost:4010/api/powerbi/overview
 ```
 

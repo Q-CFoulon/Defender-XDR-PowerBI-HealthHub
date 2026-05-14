@@ -1,6 +1,7 @@
 import cors from "cors";
 import express, { type Express } from "express";
 import cron, { type ScheduledTask } from "node-cron";
+import path from "node:path";
 import { DefenderClient } from "./clients/defenderClient";
 import { GraphClient } from "./clients/graphClient";
 import { OAuthClient } from "./clients/oauthClient";
@@ -27,6 +28,25 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
 
   app.use(cors());
   app.use(express.json({ limit: "1mb" }));
+  app.use("/static", express.static(path.join(__dirname, "..", "public")));
+
+  app.get("/", (_req, res) => {
+    res.json({
+      service: "defender-xdr-powerbi-healthhub",
+      message: "Use /api endpoints for health, Power BI data, and refresh control.",
+      endpoints: {
+        adminDashboard: "/admin",
+        health: "/api/health",
+        powerBiOverview: "/api/powerbi/overview",
+        powerBiIngestionStatus: "/api/powerbi/ingestion-status",
+        manualRefresh: "POST /api/admin/refresh"
+      }
+    });
+  });
+
+  app.get("/admin", (_req, res) => {
+    res.sendFile(path.join(__dirname, "..", "public", "index.html"));
+  });
 
   const oauthClient = new OAuthClient(config);
   const defenderClient = new DefenderClient(config, oauthClient);
@@ -50,7 +70,13 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
   await pipelineService.hydrateFromDisk();
 
   app.use("/api/health", createHealthRouter(pipelineService));
-  app.use("/api/powerbi", createPowerBiRouter(() => pipelineService.getLatestSnapshot()));
+  app.use(
+    "/api/powerbi",
+    createPowerBiRouter(
+      () => pipelineService.getLatestSnapshot(),
+      () => pipelineService.getIngestionStatus()
+    )
+  );
 
   app.post("/api/admin/refresh", async (_req, res) => {
     try {

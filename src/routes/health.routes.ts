@@ -6,6 +6,7 @@ export const createHealthRouter = (pipelineService: PipelineService): Router => 
 
   router.get("/", (_req, res) => {
     const snapshot = pipelineService.getLatestSnapshot();
+    const ingestionStatus = pipelineService.getIngestionStatus();
 
     res.json({
       status: "ok",
@@ -13,7 +14,8 @@ export const createHealthRouter = (pipelineService: PipelineService): Router => 
       uptimeSeconds: Number(process.uptime().toFixed(2)),
       hasSnapshot: Boolean(snapshot),
       latestCollectionTime: snapshot?.collectedAt ?? null,
-      tenantId: snapshot?.metadata.tenantId ?? null
+      tenantId: snapshot?.metadata.tenantId ?? null,
+      ingestionStatus
     });
   });
 

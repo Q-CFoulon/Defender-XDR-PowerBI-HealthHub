@@ -18,6 +18,26 @@ export interface McpRecommendationCandidate {
   snippet?: string;
 }
 
+export interface McpBridgeCallResult {
+  candidates: McpRecommendationCandidate[];
+  errorMessage: string | null;
+  statusCode: number | null;
+}
+
+const toBridgeError = (error: unknown): { message: string; statusCode: number | null } => {
+  if (axios.isAxiosError(error)) {
+    return {
+      message: error.message,
+      statusCode: error.response?.status ?? null
+    };
+  }
+
+  return {
+    message: error instanceof Error ? error.message : "Unknown error",
+    statusCode: null
+  };
+};
+
 const asRecord = (value: unknown): Record<string, unknown> | null => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
@@ -75,9 +95,13 @@ export class McpBridgeClient {
     return this.config.mcpBridgeUrl.trim().length > 0;
   }
 
-  public async requestRecommendations(request: McpBridgeRequest): Promise<McpRecommendationCandidate[]> {
+  public async requestRecommendations(request: McpBridgeRequest): Promise<McpBridgeCallResult> {
     if (!this.isConfigured()) {
-      return [];
+      return {
+        candidates: [],
+        errorMessage: null,
+        statusCode: null
+      };
     }
 
     const endpoint = new URL("/invoke", this.config.mcpBridgeUrl).toString();
@@ -104,19 +128,31 @@ export class McpBridgeClient {
         }
       );
 
-      return pickRecommendations(response.data)
+      return {
+        candidates: pickRecommendations(response.data)
         .map((item) => toCandidate(item))
-        .filter((item): item is McpRecommendationCandidate => item !== null);
+        .filter((item): item is McpRecommendationCandidate => item !== null),
+        errorMessage: null,
+        statusCode: null
+      };
     } catch (error) {
+      const bridgeError = toBridgeError(error);
+
       logger.warn(
         {
           server: request.server,
           capability: request.capability,
-          error
+          statusCode: bridgeError.statusCode,
+          errorMessage: bridgeError.message
         },
         "MCP bridge call failed; skipping provider"
       );
-      return [];
+
+      return {
+        candidates: [],
+        errorMessage: bridgeError.message,
+        statusCode: bridgeError.statusCode
+      };
     }
   }
 }

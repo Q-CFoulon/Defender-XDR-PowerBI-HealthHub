@@ -1,7 +1,8 @@
 import { Router } from "express";
-import type { UnifiedSnapshot } from "../types/domain";
+import type { IngestionStatusSnapshot, UnifiedSnapshot } from "../types/domain";
 
 type SnapshotGetter = () => UnifiedSnapshot | null;
+type IngestionStatusGetter = () => IngestionStatusSnapshot;
 
 const requireSnapshot = (
   res: Parameters<Router["get"]>[1] extends (req: infer _Req, res: infer TRes, ...args: unknown[]) => unknown
@@ -20,8 +21,22 @@ const requireSnapshot = (
   return snapshot;
 };
 
-export const createPowerBiRouter = (getSnapshot: SnapshotGetter): Router => {
+export const createPowerBiRouter = (
+  getSnapshot: SnapshotGetter,
+  getIngestionStatus: IngestionStatusGetter
+): Router => {
   const router = Router();
+
+  router.get("/ingestion-status", (_req, res) => {
+    const snapshot = getSnapshot();
+    const ingestionStatus = getIngestionStatus();
+
+    res.json({
+      hasSnapshot: Boolean(snapshot),
+      latestCollectionTime: snapshot?.collectedAt ?? null,
+      ...ingestionStatus
+    });
+  });
 
   router.get("/overview", (_req, res) => {
     const snapshot = requireSnapshot(res, getSnapshot);
