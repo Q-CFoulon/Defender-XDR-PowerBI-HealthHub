@@ -42,10 +42,13 @@ export class OAuthClient {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const status = error.response?.status;
+        const errorCode = error.response?.data?.error as string | undefined;
+        const errorDescription = error.response?.data?.error_description as string | undefined;
+        const detail = errorDescription ?? errorCode ?? error.message;
         throw new Error(
           `OAuth token acquisition failed for scope ${scope}${
             status ? ` (status ${status})` : ""
-          }`
+          }: ${detail}`
         );
       }
       throw new Error(`OAuth token acquisition failed for scope ${scope}`);
