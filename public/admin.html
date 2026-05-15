@@ -61,6 +61,9 @@
   .card-spaced { margin-bottom: 24px; }
   .hidden { display: none; }
   .error-value { font-size: .8rem; color: var(--red); }
+  .troubleshoot-item { padding: 10px 12px; border-left: 3px solid var(--yellow); background: var(--yellow-bg); border-radius: 0 6px 6px 0; margin-bottom: 8px; font-size: .8rem; }
+  .troubleshoot-item strong { color: var(--text); }
+  .troubleshoot-item code { background: var(--gray-bg); padding: 1px 5px; border-radius: 3px; font-size: .75rem; }
   @media (max-width: 640px) { body { padding: 12px; } .grid { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -105,6 +108,11 @@
   <div id="sourceHealth">
     <p class="empty-state">Loading…</p>
   </div>
+</div>
+
+<div class="card card-spaced" id="troubleshootCard" style="display:none;">
+  <div class="card-header"><span class="card-title">Troubleshooting Guide</span></div>
+  <div id="troubleshootContent"></div>
 </div>
 
 <div class="card hidden" id="errorCard">
@@ -224,6 +232,31 @@ async function loadDashboard() {
       document.getElementById('errorList').innerHTML = allErrors.map(e => `<li>${esc(e)}</li>`).join('');
     } else {
       errorCard.style.display = 'none';
+    }
+
+    // Troubleshooting guide
+    const tips = [];
+    if (ss.defender?.status === 'failed' || ss.defender?.status === 'degraded') {
+      const errText = (ss.defender.details || []).join(' ');
+      if (errText.includes('401')) tips.push('<strong>Defender 401 Unauthorized:</strong> Client secret may be expired. Rotate it in the Entra ID app registration and update <code>CLIENT_SECRET</code>.');
+      if (errText.includes('403')) tips.push('<strong>Defender 403 Forbidden:</strong> App lacks required API permissions. Run <code>scripts/Grant-DefenderPermissions.ps1</code> and re-consent.');
+      if (errText.includes('ECONNREFUSED') || errText.includes('ENOTFOUND')) tips.push('<strong>Defender connection failed:</strong> Verify <code>DEFENDER_API_BASE_URL</code> is reachable from this host.');
+      if (!tips.length) tips.push('<strong>Defender errors detected.</strong> Check error details above. Run <code>curl /api/diagnostics/permissions</code> to verify API access.');
+    }
+    if (ss.graph?.status === 'failed') {
+      tips.push('<strong>Graph API failed:</strong> Ensure the app has <code>SecurityEvents.Read.All</code> permission. Run <code>scripts/Grant-DefenderPermissions.ps1</code>.');
+    }
+    if (ss.mcpBridge?.status === 'failed' || ss.mcpBridge?.status === 'degraded') {
+      const mcpErr = ss.mcpBridge.lastError || '';
+      if (mcpErr.includes('not reachable')) tips.push('<strong>MCP Bridge unreachable:</strong> The server at <code>MCP_BRIDGE_URL</code> is not running. Start the bridge server or clear the variable to use built-in recommendations.');
+      else tips.push('<strong>MCP Bridge errors:</strong> Check the bridge server logs. Clear <code>MCP_BRIDGE_URL</code> to fall back to local recommendations.');
+    }
+    const troubleshootCard = document.getElementById('troubleshootCard');
+    if (tips.length > 0) {
+      troubleshootCard.style.display = '';
+      document.getElementById('troubleshootContent').innerHTML = tips.map(t => `<div class="troubleshoot-item">${t}</div>`).join('');
+    } else {
+      troubleshootCard.style.display = 'none';
     }
   } catch (err) {
     toast('Failed to load dashboard data', false);

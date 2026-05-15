@@ -3,6 +3,17 @@ import { config } from "./config/env";
 import { logger } from "./config/logger";
 
 const start = async (): Promise<void> => {
+  logger.info({
+    port: config.appPort,
+    tenantId: config.tenantId.slice(0, 8) + "…",
+    defenderApi: config.defenderApiBaseUrl,
+    graphApi: config.graphApiBaseUrl,
+    mcpBridge: config.mcpBridgeUrl || "(not configured)",
+    powerBiExport: config.powerBiPushDatasetUrl ? "enabled" : "disabled",
+    adminApiKey: config.adminApiKey ? "set" : "(open)",
+    refreshCron: config.refreshCron
+  }, "Configuration loaded");
+
   const runtime = await createApplication();
   const runOnce = process.argv.includes("--once");
 

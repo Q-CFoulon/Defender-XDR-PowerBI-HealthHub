@@ -46,13 +46,15 @@ const formatSourceError = (error: SourceErrorDetail): string => {
 const toRefreshStatus = (
   sourceStatus: IngestionStatusSnapshot["sourceStatus"]
 ): RefreshHealthStatus => {
-  const statuses = [
+  // Only core data sources (defender + graph) determine overall refresh status.
+  // MCP Bridge is supplemental — failures are visible in sourceStatus but
+  // do not degrade the overall status since local fallbacks are used.
+  const coreStatuses = [
     sourceStatus.defender.status,
-    sourceStatus.graph.status,
-    sourceStatus.mcpBridge.status
+    sourceStatus.graph.status
   ];
 
-  const hasIssues = statuses.some((status) => status === "degraded" || status === "failed");
+  const hasIssues = coreStatuses.some((status) => status === "degraded" || status === "failed");
   return hasIssues ? "partial" : "success";
 };
 
@@ -134,13 +136,13 @@ export class PipelineService {
       mcpBridge: toSourceRuntimeStatus(mcpStatus, mcpDetails)
     };
 
-    const allDetails = [...defenderDetails, ...graphDetails, ...mcpDetails];
+    const coreDetails = [...defenderDetails, ...graphDetails];
 
     return {
       lastRefreshStatus: toRefreshStatus(sourceStatus),
       lastRefreshTime: collectedAt,
       lastRefreshTrigger: trigger,
-      lastRefreshError: allDetails[0] ?? null,
+      lastRefreshError: coreDetails[0] ?? null,
       sourceStatus
     };
   }

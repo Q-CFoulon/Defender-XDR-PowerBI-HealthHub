@@ -141,6 +141,8 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .sidebar-poll { margin-top: 4px; }
 .tenant-id-value { font-size: .75rem; word-break: break-all; }
 .score-fill { width: 0; background: var(--text-dim); }
+.feature-hint { font-size: .7rem; color: var(--text-dim); margin-top: 6px; display: none; }
+.feature-hint.visible { display: block; }
 .mt-8 { margin-top: 8px; }
 .rec-count { font-size: 2rem; text-align: center; padding: 12px 0; }
 .text-center { text-align: center; }
@@ -261,6 +263,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
           <div class="card-header"><span class="card-title">Cloud Secure Score</span></div>
           <div class="score-bar"><div class="score-track"><div class="score-fill" id="cloudFill"></div></div><span class="score-pct" id="cloudPct">—</span></div>
           <div class="metric mt-8"><span class="metric-label">Score</span><div class="metric-value mono small" id="cloudRaw">—</div></div>
+          <div class="feature-hint" id="cloudHint">Requires Defender for Cloud licensing</div>
         </div>
         <div class="card">
           <div class="card-header"><span class="card-title">Recommendations</span></div>
@@ -293,6 +296,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
             <div class="metric"><span class="metric-label">Current</span><div class="metric-value mono" id="s_cloudCur">—</div></div>
             <div class="metric"><span class="metric-label">Target</span><div class="metric-value mono" id="s_cloudTarget">—</div></div>
           </div>
+          <div class="feature-hint" id="s_cloudHint">Requires Defender for Cloud licensing</div>
         </div>
       </div>
       <div class="card">
@@ -307,6 +311,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
           <div class="metric"><span class="metric-label">Devices — Low</span><div class="metric-value text-info" id="v_devLow">—</div></div>
           <div class="metric"><span class="metric-label">Devices — Medium / High</span><div class="metric-value" id="v_devMedHigh">—</div></div>
         </div>
+        <div class="feature-hint" id="vulnHint">Requires Exposure Management licensing</div>
       </div>
     </div>
 
@@ -464,6 +469,10 @@ function renderDashboard(health, ingestion, overview) {
   document.getElementById('cloudRaw').textContent = ss ? `${ss.cloudCurrentScore ?? '—'} / ${ss.cloudTargetScore ?? '—'}` : '—';
   document.getElementById('recCount').textContent = overview?.recommendationCount ?? '—';
 
+  // Show licensing hints when data is unavailable
+  const hasSnapshot = ingestion?.hasSnapshot;
+  document.getElementById('cloudHint').classList.toggle('visible', hasSnapshot && ss?.cloudScorePct == null);
+
   // Source health
   const sources = ingestion?.sourceStatus || {};
   const html = Object.entries(sources).map(([key, s]) => `
@@ -497,6 +506,10 @@ function renderScores(overview) {
   const dd = v?.deviceExposureDistribution;
   document.getElementById('v_devLow').textContent = dd?.low ?? '—';
   document.getElementById('v_devMedHigh').textContent = dd ? `${dd.medium} / ${dd.high}` : '—';
+
+  // Show licensing hints when features are unavailable
+  document.getElementById('s_cloudHint').classList.toggle('visible', ss?.cloudScorePct == null);
+  document.getElementById('vulnHint').classList.toggle('visible', v?.exposureScore == null);
 }
 
 /* ======= RENDER: INITIATIVES ======= */
