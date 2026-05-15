@@ -146,19 +146,25 @@ export class McpBridgeClient {
     } catch (error) {
       const bridgeError = toBridgeError(error);
 
+      const isConnectionError = axios.isAxiosError(error) &&
+        (error.code === "ECONNREFUSED" || error.code === "ENOTFOUND" || error.code === "ECONNRESET");
+      const detail = isConnectionError
+        ? `MCP Bridge server is not reachable at ${this.config.mcpBridgeUrl}. Verify MCP_BRIDGE_URL is correct and the bridge server is running.`
+        : bridgeError.message;
+
       logger.warn(
         {
           server: request.server,
           capability: request.capability,
           statusCode: bridgeError.statusCode,
-          errorMessage: bridgeError.message
+          errorMessage: detail
         },
-        "MCP bridge call failed; skipping provider"
+        "MCP bridge call failed; using fallback recommendations"
       );
 
       return {
         candidates: [],
-        errorMessage: bridgeError.message,
+        errorMessage: detail,
         statusCode: bridgeError.statusCode
       };
     }
