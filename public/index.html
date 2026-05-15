@@ -136,6 +136,33 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---- Utilities ---- */
+.nav-link { text-decoration: none; }
+.sidebar-poll { margin-top: 4px; }
+.tenant-id-value { font-size: .75rem; word-break: break-all; }
+.score-fill { width: 0; background: var(--text-dim); }
+.mt-8 { margin-top: 8px; }
+.rec-count { font-size: 2rem; text-align: center; padding: 12px 0; }
+.text-center { text-align: center; }
+.score-bar-lg { margin-bottom: 12px; }
+.score-track-lg { height: 12px; }
+.score-fill-lg { height: 12px; border-radius: 6px; }
+.score-pct-lg { font-size: 1.2rem; }
+.grid-flush { margin-bottom: 0; }
+.grid-flush-mt { margin-bottom: 0; margin-top: 12px; }
+.text-danger { color: var(--red); }
+.text-info { color: var(--blue); }
+.card-spaced { margin-bottom: 24px; }
+.filter-row { display: flex; gap: 6px; }
+.hidden { display: none; }
+.td-nowrap { white-space: nowrap; }
+.td-bold { font-weight: 600; }
+.source-icon-defender { background: var(--blue-bg); color: var(--blue); }
+.source-icon-graph { background: var(--purple-bg); color: var(--purple); }
+.source-icon-mcp { background: var(--yellow-bg); color: var(--yellow); }
+.source-icon-unknown { background: var(--gray-bg); color: var(--text-muted); }
+.back-link { color: var(--blue); text-decoration: none; }
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   .sidebar { display: none; }
@@ -175,10 +202,14 @@ button:disabled { opacity: .4; cursor: not-allowed; }
       <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 14h14L8 1zm-.75 5h1.5v4h-1.5V6zm0 5h1.5v1.5h-1.5V11z"/></svg>
       Errors
     </button>
+    <a class="nav-item nav-link" href="/admin">
+      <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 100 16A8 8 0 008 0zm1 12H7V7h2v5zm0-6H7V4h2v2z"/></svg>
+      Admin Panel
+    </a>
   </nav>
   <div class="sidebar-footer">
     <div>Auto-refresh: <label><input type="checkbox" id="autoRefreshToggle" checked /> 30 s</label></div>
-    <div id="lastPoll" style="margin-top:4px">—</div>
+    <div id="lastPoll" class="sidebar-poll">—</div>
   </div>
 </aside>
 
@@ -206,7 +237,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
         <div class="card">
           <div class="card-header"><span class="card-title">Service Status</span><span id="serviceBadge"></span></div>
           <div class="metric"><span class="metric-label">Uptime</span><div class="metric-value mono" id="uptime">—</div></div>
-          <div class="metric"><span class="metric-label">Tenant ID</span><div class="metric-value mono small" id="tenantId" style="font-size:.75rem;word-break:break-all">—</div></div>
+          <div class="metric"><span class="metric-label">Tenant ID</span><div class="metric-value mono small tenant-id-value" id="tenantId">—</div></div>
         </div>
         <div class="card">
           <div class="card-header"><span class="card-title">Last Refresh</span><span id="refreshBadge"></span></div>
@@ -223,18 +254,18 @@ button:disabled { opacity: .4; cursor: not-allowed; }
       <div class="grid grid-3">
         <div class="card">
           <div class="card-header"><span class="card-title">M365 Secure Score</span></div>
-          <div class="score-bar"><div class="score-track"><div class="score-fill" id="m365Fill" style="width:0;background:var(--text-dim)"></div></div><span class="score-pct" id="m365Pct">—</span></div>
-          <div class="metric" style="margin-top:8px"><span class="metric-label">Score</span><div class="metric-value mono small" id="m365Raw">—</div></div>
+          <div class="score-bar"><div class="score-track"><div class="score-fill" id="m365Fill"></div></div><span class="score-pct" id="m365Pct">—</span></div>
+          <div class="metric mt-8"><span class="metric-label">Score</span><div class="metric-value mono small" id="m365Raw">—</div></div>
         </div>
         <div class="card">
           <div class="card-header"><span class="card-title">Cloud Secure Score</span></div>
-          <div class="score-bar"><div class="score-track"><div class="score-fill" id="cloudFill" style="width:0;background:var(--text-dim)"></div></div><span class="score-pct" id="cloudPct">—</span></div>
-          <div class="metric" style="margin-top:8px"><span class="metric-label">Score</span><div class="metric-value mono small" id="cloudRaw">—</div></div>
+          <div class="score-bar"><div class="score-track"><div class="score-fill" id="cloudFill"></div></div><span class="score-pct" id="cloudPct">—</span></div>
+          <div class="metric mt-8"><span class="metric-label">Score</span><div class="metric-value mono small" id="cloudRaw">—</div></div>
         </div>
         <div class="card">
           <div class="card-header"><span class="card-title">Recommendations</span></div>
-          <div class="metric-value" id="recCount" style="font-size:2rem;text-align:center;padding:12px 0">—</div>
-          <div class="metric-label" style="text-align:center">remediation items</div>
+          <div class="metric-value rec-count" id="recCount">—</div>
+          <div class="metric-label text-center">remediation items</div>
         </div>
       </div>
 
@@ -249,7 +280,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
       <div class="grid grid-2">
         <div class="card">
           <div class="card-header"><span class="card-title">M365 Secure Score</span></div>
-          <div class="score-bar" style="margin-bottom:12px"><div class="score-track" style="height:12px"><div class="score-fill" id="s_m365Fill" style="width:0;background:var(--text-dim);height:12px;border-radius:6px"></div></div><span class="score-pct" style="font-size:1.2rem" id="s_m365Pct">—</span></div>
+          <div class="score-bar score-bar-lg"><div class="score-track score-track-lg"><div class="score-fill score-fill-lg" id="s_m365Fill"></div></div><span class="score-pct score-pct-lg" id="s_m365Pct">—</span></div>
           <div class="metric-row">
             <div class="metric"><span class="metric-label">Current</span><div class="metric-value mono" id="s_m365Cur">—</div></div>
             <div class="metric"><span class="metric-label">Max Possible</span><div class="metric-value mono" id="s_m365Max">—</div></div>
@@ -257,7 +288,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
         </div>
         <div class="card">
           <div class="card-header"><span class="card-title">Cloud Secure Score</span></div>
-          <div class="score-bar" style="margin-bottom:12px"><div class="score-track" style="height:12px"><div class="score-fill" id="s_cloudFill" style="width:0;background:var(--text-dim);height:12px;border-radius:6px"></div></div><span class="score-pct" style="font-size:1.2rem" id="s_cloudPct">—</span></div>
+          <div class="score-bar score-bar-lg"><div class="score-track score-track-lg"><div class="score-fill score-fill-lg" id="s_cloudFill"></div></div><span class="score-pct score-pct-lg" id="s_cloudPct">—</span></div>
           <div class="metric-row">
             <div class="metric"><span class="metric-label">Current</span><div class="metric-value mono" id="s_cloudCur">—</div></div>
             <div class="metric"><span class="metric-label">Target</span><div class="metric-value mono" id="s_cloudTarget">—</div></div>
@@ -266,14 +297,14 @@ button:disabled { opacity: .4; cursor: not-allowed; }
       </div>
       <div class="card">
         <div class="card-header"><span class="card-title">Vulnerability Overview</span></div>
-        <div class="grid grid-3" style="margin-bottom:0">
+        <div class="grid grid-3 grid-flush">
           <div class="metric"><span class="metric-label">Exposure Score</span><div class="metric-value" id="v_exposureScore">—</div></div>
           <div class="metric"><span class="metric-label">Exposure Level</span><div class="metric-value" id="v_exposureLevel">—</div></div>
-          <div class="metric"><span class="metric-label">Critical Vulns</span><div class="metric-value" style="color:var(--red)" id="v_critVulns">—</div></div>
+          <div class="metric"><span class="metric-label">Critical Vulns</span><div class="metric-value text-danger" id="v_critVulns">—</div></div>
         </div>
-        <div class="grid grid-3" style="margin-bottom:0;margin-top:12px">
+        <div class="grid grid-3 grid-flush-mt">
           <div class="metric"><span class="metric-label">Active Recommendations</span><div class="metric-value" id="v_activeRecs">—</div></div>
-          <div class="metric"><span class="metric-label">Devices — Low</span><div class="metric-value" style="color:var(--blue)" id="v_devLow">—</div></div>
+          <div class="metric"><span class="metric-label">Devices — Low</span><div class="metric-value text-info" id="v_devLow">—</div></div>
           <div class="metric"><span class="metric-label">Devices — Medium / High</span><div class="metric-value" id="v_devMedHigh">—</div></div>
         </div>
       </div>
@@ -281,7 +312,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 
     <!-- ========== INITIATIVES PAGE ========== -->
     <div class="page" id="page-initiatives">
-      <div class="card" style="margin-bottom:24px">
+      <div class="card card-spaced">
         <div class="card-header"><span class="card-title">Program Initiatives</span></div>
         <div id="programTable"><p class="empty-state">Loading…</p></div>
       </div>
@@ -296,7 +327,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
       <div class="card">
         <div class="card-header">
           <span class="card-title">Remediation Recommendations</span>
-          <div style="display:flex;gap:6px" id="recFilters"></div>
+          <div class="filter-row" id="recFilters"></div>
         </div>
         <div id="recTable"><p class="empty-state">Loading…</p></div>
       </div>
@@ -304,14 +335,14 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 
     <!-- ========== ERRORS PAGE ========== -->
     <div class="page" id="page-errors">
-      <div class="card" style="margin-bottom:24px">
+      <div class="card card-spaced">
         <div class="card-header"><span class="card-title">Ingestion Error Summary</span></div>
         <div id="errorSummary"><p class="empty-state">Loading…</p></div>
       </div>
       <div class="card">
         <div class="card-header"><span class="card-title">All Errors</span></div>
         <ul class="error-strip" id="errorList"></ul>
-        <div id="noErrors" class="empty-state" style="display:none">No errors in the current snapshot.</div>
+        <div id="noErrors" class="empty-state hidden">No errors in the current snapshot.</div>
       </div>
     </div>
 
@@ -385,9 +416,11 @@ function statusDotClass(status) {
 }
 
 function sourceIcon(name) {
-  const map = { defender: { bg: 'var(--blue-bg)', color: 'var(--blue)', letter: 'D' }, graph: { bg: 'var(--purple-bg)', color: 'var(--purple)', letter: 'G' }, mcpBridge: { bg: 'var(--yellow-bg)', color: 'var(--yellow)', letter: 'M' } };
-  const c = map[name] || { bg: 'var(--gray-bg)', color: 'var(--text-muted)', letter: '?' };
-  return `<div class="source-icon" style="background:${c.bg};color:${c.color}">${c.letter}</div>`;
+  const map = { defender: 'source-icon-defender', graph: 'source-icon-graph', mcpBridge: 'source-icon-mcp' };
+  const letters = { defender: 'D', graph: 'G', mcpBridge: 'M' };
+  const cls = map[name] || 'source-icon-unknown';
+  const letter = letters[name] || '?';
+  return `<div class="source-icon ${cls}">${letter}</div>`;
 }
 
 const friendlySource = { defender: 'Microsoft Defender', graph: 'Microsoft Graph', mcpBridge: 'MCP Bridge' };
@@ -506,8 +539,8 @@ function applyRecFilter() {
   document.getElementById('recTable').innerHTML = `<table class="data-table"><thead><tr><th>Priority</th><th>Source</th><th>Title</th><th class="wrap">Description</th><th>Risk Area</th><th>Link</th></tr></thead><tbody>` +
     list.map(r => `<tr>
       <td>${badge(r.priority)}</td>
-      <td style="white-space:nowrap">${esc(r.source)}</td>
-      <td style="font-weight:600">${esc(r.title)}</td>
+      <td class="td-nowrap">${esc(r.source)}</td>
+      <td class="td-bold">${esc(r.title)}</td>
       <td class="wrap">${esc(r.description)}</td>
       <td>${esc(r.relatedRiskArea)}</td>
       <td>${r.link ? `<a href="${esc(r.link)}" target="_blank" rel="noopener">View</a>` : '—'}</td>

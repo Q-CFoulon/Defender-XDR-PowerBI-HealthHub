@@ -52,17 +52,21 @@
   .toast-err { background: var(--red-bg); color: var(--red); border: 1px solid var(--red); }
   .score-bar { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
   .score-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
-  .score-fill { height: 100%; border-radius: 3px; transition: width .4s; }
+  .score-fill { height: 100%; border-radius: 3px; transition: width .4s; width: 0; background: var(--text-dim); }
   .score-pct { font-size: .8rem; font-weight: 600; min-width: 40px; text-align: right; }
   .empty-state { color: var(--text-dim); font-size: .85rem; font-style: italic; }
   .refreshing-indicator { display: none; color: var(--blue); font-size: .85rem; }
   .refreshing-indicator.active { display: inline; }
+  .back-link { color: var(--blue); text-decoration: none; }
+  .card-spaced { margin-bottom: 24px; }
+  .hidden { display: none; }
+  .error-value { font-size: .8rem; color: var(--red); }
   @media (max-width: 640px) { body { padding: 12px; } .grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <h1>Defender XDR Health Hub</h1>
-<p class="subtitle">Admin Dashboard — <span id="baseUrl"></span></p>
+<p class="subtitle">Admin Dashboard — <span id="baseUrl"></span> · <a href="/dashboard" class="back-link">Back to Dashboard →</a></p>
 
 <div class="actions">
   <button id="refreshBtn" onclick="triggerRefresh()">Trigger Refresh</button>
@@ -86,24 +90,24 @@
     <div class="card-header"><span class="card-title">Secure Scores</span></div>
     <div class="metric">
       <span class="metric-label">M365 Secure Score</span>
-      <div class="score-bar"><div class="score-track"><div class="score-fill" id="m365Fill" style="width:0;background:var(--text-dim)"></div></div><span class="score-pct" id="m365Pct">—</span></div>
+      <div class="score-bar"><div class="score-track"><div class="score-fill" id="m365Fill"></div></div><span class="score-pct" id="m365Pct">—</span></div>
     </div>
     <div class="metric">
       <span class="metric-label">Cloud Secure Score</span>
-      <div class="score-bar"><div class="score-track"><div class="score-fill" id="cloudFill" style="width:0;background:var(--text-dim)"></div></div><span class="score-pct" id="cloudPct">—</span></div>
+      <div class="score-bar"><div class="score-track"><div class="score-fill" id="cloudFill"></div></div><span class="score-pct" id="cloudPct">—</span></div>
     </div>
     <div class="metric"><span class="metric-label">Recommendations</span><div class="metric-value" id="recCount">—</div></div>
   </div>
 </div>
 
-<div class="card" style="margin-bottom:24px">
+<div class="card card-spaced">
   <div class="card-header"><span class="card-title">Source Health</span></div>
   <div id="sourceHealth">
     <p class="empty-state">Loading…</p>
   </div>
 </div>
 
-<div class="card" id="errorCard" style="display:none">
+<div class="card hidden" id="errorCard">
   <div class="card-header"><span class="card-title">Recent Errors</span></div>
   <ul class="error-list" id="errorList"></ul>
 </div>
@@ -151,7 +155,7 @@ function renderSource(name, src) {
         ${badge(src.status)}
       </div>
       <div class="metric"><span class="metric-label">Errors</span><span class="metric-value mono">${src.errorCount}</span></div>
-      ${src.lastError ? `<div class="metric"><span class="metric-label">Last Error</span><div class="metric-value mono" style="font-size:.8rem;color:var(--red)">${esc(src.lastError)}</div></div>` : ''}
+      ${src.lastError ? `<div class="metric"><span class="metric-label">Last Error</span><div class="metric-value mono error-value">${esc(src.lastError)}</div></div>` : ''}
       ${errors.length > 0 ? `<ul class="error-list">${errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}
     </div>`;
 }

@@ -289,7 +289,8 @@ Power BI endpoints:
 Operational endpoints:
 
 - GET / — Service discovery (JSON)
-- GET /admin — Admin dashboard (browser UI)
+- GET /dashboard — Full dashboard (browser UI, admin auth)
+- GET /admin — Admin dashboard (browser UI, admin auth)
 - GET /api/health
 - GET /api/metrics — Observability metrics (admin auth)
 - GET /api/diagnostics/permissions — Permission grant diagnostics (admin auth)
@@ -321,7 +322,7 @@ This is the most common deployment issue. A **403** means the app registration c
 
 The service includes a built-in permission diagnostics endpoint that inspects the latest refresh errors and maps each 403 to the exact missing permission:
 
-```
+```text
 GET /api/diagnostics/permissions
 ```
 
@@ -388,7 +389,7 @@ require('dotenv').config({ path: '.env.local' });
 
 Expected healthy output:
 
-```
+```text
 Audience: https://api.security.microsoft.com
 Roles: [ 'Score.Read.All', 'Vulnerability.Read.All', 'SecurityRecommendation.Read.All', 'Machine.ReadWrite.All' ]
 ```
@@ -414,7 +415,7 @@ require('dotenv').config({ path: '.env.local' });
 
 Expected healthy output:
 
-```
+```text
 Audience: https://graph.microsoft.com
 Roles: [ 'SecurityEvents.Read.All' ]
 ```

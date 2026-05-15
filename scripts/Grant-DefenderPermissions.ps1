@@ -40,7 +40,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Ensure-Module {
+function Install-RequiredModule {
     param([Parameter(Mandatory = $true)][string]$ModuleName)
     if (-not (Get-Module -ListAvailable -Name $ModuleName)) {
         Write-Host "Installing module: $ModuleName"
@@ -49,8 +49,8 @@ function Ensure-Module {
     Import-Module -Name $ModuleName -ErrorAction Stop
 }
 
-Ensure-Module -ModuleName Microsoft.Graph.Authentication
-Ensure-Module -ModuleName Microsoft.Graph.Applications
+Install-RequiredModule -ModuleName Microsoft.Graph.Authentication
+Install-RequiredModule -ModuleName Microsoft.Graph.Applications
 
 $connectParams = @{
     Scopes = @(

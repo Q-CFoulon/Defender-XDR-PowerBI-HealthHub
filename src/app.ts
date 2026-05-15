@@ -92,6 +92,7 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
       service: "defender-xdr-powerbi-healthhub",
       message: "Use /api endpoints for health, Power BI data, and refresh control.",
       endpoints: {
+        dashboard: "/dashboard",
         adminDashboard: "/admin",
         health: "/api/health",
         powerBiOverview: "/api/powerbi/overview",
@@ -102,9 +103,17 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
     });
   });
 
-  app.get("/admin", adminAuth, (_req, res) => {
+  app.get("/dashboard", adminAuth, (_req, res) => {
     res.sendFile(path.join(__dirname, "..", "public", "index.html"));
   });
+
+  app.get("/admin", adminAuth, (_req, res) => {
+    res.sendFile(path.join(__dirname, "..", "public", "admin.html"));
+  });
+
+  // Convenience redirects for .html paths
+  app.get("/admin.html", (_req, res) => res.redirect("/admin"));
+  app.get("/index.html", (_req, res) => res.redirect("/dashboard"));
 
   const oauthClient = new OAuthClient(config);
   const defenderClient = new DefenderClient(config, oauthClient);
