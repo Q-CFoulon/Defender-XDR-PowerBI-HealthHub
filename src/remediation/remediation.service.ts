@@ -13,6 +13,7 @@ import {
   type McpBridgeCallResult,
   type McpRecommendationCandidate
 } from "./mcpBridgeClient";
+import { getAllLocalProviders, type LocalRecommendation } from "./providers";
 
 interface RemediationInput {
   secureScores: SecureScores;
@@ -348,17 +349,31 @@ export class RemediationService {
     const signalSummary = buildSignalSummary(input);
 
     if (!this.mcpBridgeClient.isConfigured()) {
+      const localProviders = getAllLocalProviders();
+      const localRecs: RemediationRecommendation[] = localProviders.flatMap((provider) => {
+        const generated = provider.generate(input);
+        return generated.map((rec: LocalRecommendation) => ({
+          id: crypto.randomUUID(),
+          source: PROVIDERS.find((p) => p.server === provider.serverName)?.source ?? provider.serverName,
+          title: rec.title,
+          description: rec.description,
+          priority: rec.priority,
+          relatedRiskArea: rec.relatedRiskArea,
+          link: rec.link,
+          snippet: rec.snippet,
+          generatedAt: nowIso
+        }));
+      });
+
       return {
-        recommendations: PROVIDERS.map((provider) =>
-          fallbackRecommendation(provider, input, nowIso)
-        ),
+        recommendations: localRecs,
         diagnostics: {
           mcpBridge: {
             configured: false,
-            totalProviders: PROVIDERS.length,
-            succeededProviders: 0,
+            totalProviders: localProviders.length,
+            succeededProviders: localProviders.length,
             failedProviders: 0,
-            status: "disabled",
+            status: "healthy",
             errors: []
           }
         }

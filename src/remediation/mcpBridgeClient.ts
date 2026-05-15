@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { AppConfig } from "../config/env";
 import { logger } from "../config/logger";
+import { CircuitBreaker } from "../middleware/circuitBreaker";
 
 export interface McpBridgeRequest {
   server: string;
@@ -89,6 +90,11 @@ const toCandidate = (value: unknown): McpRecommendationCandidate | null => {
 };
 
 export class McpBridgeClient {
+  private readonly circuitBreaker = new CircuitBreaker("mcp-bridge", {
+    failureThreshold: 3,
+    resetTimeoutMs: 120_000
+  });
+
   public constructor(private readonly config: AppConfig) {}
 
   public isConfigured(): boolean {
@@ -114,18 +120,20 @@ export class McpBridgeClient {
     }
 
     try {
-      const response = await axios.post(
-        endpoint,
-        {
-          server: request.server,
-          capability: request.capability,
-          query: request.query,
-          context: request.context
-        },
-        {
-          headers,
-          timeout: 45_000
-        }
+      const response = await this.circuitBreaker.execute(() =>
+        axios.post(
+          endpoint,
+          {
+            server: request.server,
+            capability: request.capability,
+            query: request.query,
+            context: request.context
+          },
+          {
+            headers,
+            timeout: 45_000
+          }
+        )
       );
 
       return {

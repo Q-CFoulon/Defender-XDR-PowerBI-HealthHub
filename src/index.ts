@@ -29,10 +29,21 @@ const start = async (): Promise<void> => {
   const shutdown = (signal: string): void => {
     logger.info({ signal }, "Shutdown signal received");
     runtime.stopScheduler();
-    server.close(() => {
-      logger.info("HTTP server closed");
-      process.exit(0);
-    });
+
+    const waitForRefresh = (): void => {
+      if (runtime.pipelineService.isRefreshing()) {
+        logger.info("Waiting for in-flight refresh to complete before shutdown...");
+        setTimeout(waitForRefresh, 500);
+        return;
+      }
+
+      server.close(() => {
+        logger.info("HTTP server closed");
+        process.exit(0);
+      });
+    };
+
+    waitForRefresh();
 
     setTimeout(() => {
       logger.error("Force exiting after shutdown timeout");

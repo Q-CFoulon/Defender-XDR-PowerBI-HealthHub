@@ -1,5 +1,6 @@
 import type { AppConfig } from "../config/env";
 import { logger } from "../config/logger";
+import { metrics, startTimer } from "../middleware/metrics";
 import { DefenderClient } from "../clients/defenderClient";
 import { GraphClient } from "../clients/graphClient";
 import {
@@ -57,6 +58,7 @@ const toRefreshStatus = (
 
 export class PipelineService {
   private latestSnapshot: UnifiedSnapshot | null = null;
+  private refreshInProgress = false;
   private ingestionStatus: IngestionStatusSnapshot = {
     lastRefreshStatus: "never",
     lastRefreshTime: null,
@@ -101,6 +103,10 @@ export class PipelineService {
     return this.ingestionStatus;
   }
 
+  public isRefreshing(): boolean {
+    return this.refreshInProgress;
+  }
+
   private buildIngestionStatus(
     trigger: string,
     collectedAt: string,
@@ -140,6 +146,17 @@ export class PipelineService {
   }
 
   public async refresh(trigger: string): Promise<UnifiedSnapshot> {
+    if (this.refreshInProgress) {
+      logger.warn({ trigger }, "Refresh already in progress; skipping");
+      if (this.latestSnapshot) {
+        return this.latestSnapshot;
+      }
+      throw new Error("Refresh already in progress and no previous snapshot available");
+    }
+
+    this.refreshInProgress = true;
+    metrics.refreshCount.increment();
+    const elapsed = startTimer();
     logger.info({ trigger }, "Starting Defender XDR data refresh");
 
     try {
@@ -187,10 +204,13 @@ export class PipelineService {
         {
           collectedAt: snapshot.collectedAt,
           recommendationCount: snapshot.remediationRecommendations.length,
-          refreshStatus: this.ingestionStatus.lastRefreshStatus
+          refreshStatus: this.ingestionStatus.lastRefreshStatus,
+          durationMs: elapsed()
         },
         "Defender XDR data refresh completed"
       );
+
+      metrics.refreshDuration.observe(elapsed());
 
       return snapshot;
     } catch (error) {
@@ -203,6 +223,11 @@ export class PipelineService {
       };
 
       throw error;
+    } finally {
+      this.refreshInProgress = false;
+      if (this.ingestionStatus.lastRefreshStatus === "failed") {
+        metrics.refreshFailures.increment();
+      }
     }
   }
 }

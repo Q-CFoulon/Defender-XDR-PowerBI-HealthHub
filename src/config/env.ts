@@ -40,6 +40,8 @@ export interface AppConfig {
   appPort: number;
   nodeEnv: string;
   refreshCron: string;
+  adminApiKey: string;
+  corsAllowedOrigins: string;
   tenantId: string;
   clientId: string;
   clientSecret: string;
@@ -63,6 +65,8 @@ export const config: AppConfig = {
   appPort: toNumber(optionalEnv("APP_PORT", "4010"), 4010),
   nodeEnv: optionalEnv("NODE_ENV", "development"),
   refreshCron: optionalEnv("REFRESH_CRON", "0 */30 * * * *"),
+  adminApiKey: optionalEnv("ADMIN_API_KEY", ""),
+  corsAllowedOrigins: optionalEnv("CORS_ALLOWED_ORIGINS", ""),
   tenantId: requiredEnv("TENANT_ID"),
   clientId: requiredEnv("CLIENT_ID"),
   clientSecret: requiredEnv("CLIENT_SECRET"),

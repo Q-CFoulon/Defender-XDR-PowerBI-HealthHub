@@ -1,5 +1,7 @@
 import cors from "cors";
 import express, { type Express } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import cron, { type ScheduledTask } from "node-cron";
 import path from "node:path";
 import { DefenderClient } from "./clients/defenderClient";
@@ -7,6 +9,8 @@ import { GraphClient } from "./clients/graphClient";
 import { OAuthClient } from "./clients/oauthClient";
 import { config } from "./config/env";
 import { logger } from "./config/logger";
+import { createAdminAuth } from "./middleware/adminAuth";
+import { metrics } from "./middleware/metrics";
 import { McpBridgeClient } from "./remediation/mcpBridgeClient";
 import { RemediationService } from "./remediation/remediation.service";
 import { createHealthRouter } from "./routes/health.routes";
@@ -26,9 +30,61 @@ export interface ApplicationRuntime {
 export const createApplication = async (): Promise<ApplicationRuntime> => {
   const app = express();
 
-  app.use(cors());
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"]
+      }
+    }
+  }));
+
+  // CORS
+  const corsOrigins = config.corsAllowedOrigins.trim();
+  app.use(cors(corsOrigins.length > 0
+    ? { origin: corsOrigins.split(",").map((o) => o.trim()), credentials: true }
+    : undefined
+  ));
+
+  // Global rate limiter: 100 requests per minute per IP
+  app.use(rateLimit({
+    windowMs: 60_000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests, please try again later." }
+  }));
+
   app.use(express.json({ limit: "1mb" }));
+
+  // Request counting middleware
+  app.use((_req, res, next) => {
+    metrics.httpRequests.increment();
+    res.on("finish", () => {
+      if (res.statusCode >= 400) {
+        metrics.httpErrors.increment();
+      }
+    });
+    next();
+  });
+
   app.use("/static", express.static(path.join(__dirname, "..", "public")));
+
+  // Admin auth middleware
+  const adminAuth = createAdminAuth(config.adminApiKey);
+
+  // Stricter rate limit for refresh endpoint: 5 per minute
+  const refreshLimiter = rateLimit({
+    windowMs: 60_000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Refresh rate limit exceeded. Max 5 per minute." }
+  });
 
   app.get("/", (_req, res) => {
     res.json({
@@ -44,7 +100,7 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
     });
   });
 
-  app.get("/admin", (_req, res) => {
+  app.get("/admin", adminAuth, (_req, res) => {
     res.sendFile(path.join(__dirname, "..", "public", "index.html"));
   });
 
@@ -70,6 +126,11 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
   await pipelineService.hydrateFromDisk();
 
   app.use("/api/health", createHealthRouter(pipelineService));
+
+  app.get("/api/metrics", adminAuth, (_req, res) => {
+    res.json(metrics.snapshot());
+  });
+
   app.use(
     "/api/powerbi",
     createPowerBiRouter(
@@ -78,7 +139,7 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
     )
   );
 
-  app.post("/api/admin/refresh", async (_req, res) => {
+  app.post("/api/admin/refresh", adminAuth, refreshLimiter, async (_req, res) => {
     try {
       const snapshot = await pipelineService.refresh("manual-api-trigger");
       res.json({

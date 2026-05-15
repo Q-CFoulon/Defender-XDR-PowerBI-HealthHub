@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { AppConfig } from "../config/env";
 import { logger } from "../config/logger";
+import { withRetry } from "../middleware/retry";
 import type { GraphRawData, SourceErrorDetail } from "../types/domain";
 import { OAuthClient } from "./oauthClient";
 
@@ -37,17 +38,19 @@ export class GraphClient {
   ) {}
 
   private async callEndpoint(path: string): Promise<unknown> {
-    const accessToken = await this.oauthClient.getAccessToken(this.config.graphScope);
-    const requestUrl = buildRequestUrl(this.config.graphApiBaseUrl, path);
+    return withRetry(async () => {
+      const accessToken = await this.oauthClient.getAccessToken(this.config.graphScope);
+      const requestUrl = buildRequestUrl(this.config.graphApiBaseUrl, path);
 
-    const response = await axios.get(requestUrl, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      },
-      timeout: 30_000
-    });
+      const response = await axios.get(requestUrl, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        },
+        timeout: 30_000
+      });
 
-    return response.data;
+      return response.data;
+    }, `graph:${path}`);
   }
 
   public async collectRawData(): Promise<GraphRawData> {

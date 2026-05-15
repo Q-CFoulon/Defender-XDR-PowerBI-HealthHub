@@ -11,6 +11,14 @@ services:
       - .env
     volumes:
       - ./data:/app/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 128M
+          cpus: "0.25"
     healthcheck:
       test: ["CMD", "wget", "-qO", "-", "http://localhost:4010/api/health"]
       interval: 60s

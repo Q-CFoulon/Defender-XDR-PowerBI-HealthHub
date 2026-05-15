@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { AppConfig } from "../config/env";
 import { logger } from "../config/logger";
+import { withRetry } from "../middleware/retry";
 import type { DefenderRawData, SourceErrorDetail } from "../types/domain";
 import { OAuthClient } from "./oauthClient";
 
@@ -37,17 +38,19 @@ export class DefenderClient {
   ) {}
 
   private async callEndpoint(path: string): Promise<unknown> {
-    const accessToken = await this.oauthClient.getAccessToken(this.config.defenderScope);
-    const requestUrl = buildRequestUrl(this.config.defenderApiBaseUrl, path);
+    return withRetry(async () => {
+      const accessToken = await this.oauthClient.getAccessToken(this.config.defenderScope);
+      const requestUrl = buildRequestUrl(this.config.defenderApiBaseUrl, path);
 
-    const response = await axios.get(requestUrl, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      },
-      timeout: 30_000
-    });
+      const response = await axios.get(requestUrl, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        },
+        timeout: 30_000
+      });
 
-    return response.data;
+      return response.data;
+    }, `defender:${path}`);
   }
 
   private async safeCall(path: string, endpointName: string, errors: SourceErrorDetail[]): Promise<unknown> {
