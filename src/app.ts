@@ -17,6 +17,7 @@ import { createHealthRouter } from "./routes/health.routes";
 import { createPowerBiRouter } from "./routes/powerbi.routes";
 import { NormalizeService } from "./services/normalize.service";
 import { PipelineService } from "./services/pipeline.service";
+import { analyzePermissions } from "./services/permissionDiagnostics.service";
 import { PowerBiExporterService } from "./services/powerbiExporter.service";
 import { SnapshotStoreService } from "./services/snapshotStore.service";
 
@@ -95,6 +96,7 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
         health: "/api/health",
         powerBiOverview: "/api/powerbi/overview",
         powerBiIngestionStatus: "/api/powerbi/ingestion-status",
+        permissionDiagnostics: "/api/diagnostics/permissions",
         manualRefresh: "POST /api/admin/refresh"
       }
     });
@@ -129,6 +131,11 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
 
   app.get("/api/metrics", adminAuth, (_req, res) => {
     res.json(metrics.snapshot());
+  });
+
+  app.get("/api/diagnostics/permissions", adminAuth, (_req, res) => {
+    const report = analyzePermissions(pipelineService.getIngestionStatus());
+    res.json(report);
   });
 
   app.use(

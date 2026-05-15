@@ -291,6 +291,8 @@ Operational endpoints:
 - GET / — Service discovery (JSON)
 - GET /admin — Admin dashboard (browser UI)
 - GET /api/health
+- GET /api/metrics — Observability metrics (admin auth)
+- GET /api/diagnostics/permissions — Permission grant diagnostics (admin auth)
 - POST /api/admin/refresh
 
 ## Known Issues / Pending Actions
@@ -313,7 +315,55 @@ Checks:
 
 ## Symptom: 403 or 404 from Defender or Graph APIs
 
-This is the most common deployment issue. A **403** from Defender APIs means the app registration exists and can obtain a token, but the **WindowsDefenderATP** permissions have not been admin-consented.
+This is the most common deployment issue. A **403** means the app registration can obtain a token, but one or more API permissions have not been admin-consented.
+
+### Self-service diagnostics endpoint
+
+The service includes a built-in permission diagnostics endpoint that inspects the latest refresh errors and maps each 403 to the exact missing permission:
+
+```
+GET /api/diagnostics/permissions
+```
+
+(Requires admin API key when `ADMIN_API_KEY` is set.)
+
+Sample output when grants are missing:
+
+```json
+{
+  "healthy": false,
+  "summary": "3 permission grant(s) likely missing: WindowsDefenderATP → Score.Read.All, WindowsDefenderATP → SecurityRecommendation.Read.All, Microsoft Graph → SecurityEvents.Read.All. Grant admin consent in Entra ID.",
+  "missingGrants": [
+    {
+      "endpoint": "vulnerabilityOverview",
+      "statusCode": 403,
+      "likelyMissingPermission": {
+        "api": "WindowsDefenderATP",
+        "permission": "Score.Read.All"
+      },
+      "fix": "Grant 'Score.Read.All' (Application) on 'WindowsDefenderATP' and click 'Grant admin consent' in Entra ID > App registrations > API permissions."
+    }
+  ],
+  "allRequiredPermissions": [
+    { "api": "WindowsDefenderATP", "permission": "Score.Read.All", "status": "likely-missing" },
+    { "api": "WindowsDefenderATP", "permission": "SecurityRecommendation.Read.All", "status": "ok" },
+    { "api": "WindowsDefenderATP", "permission": "Vulnerability.Read.All", "status": "ok" },
+    { "api": "Microsoft Graph", "permission": "SecurityEvents.Read.All", "status": "ok" }
+  ]
+}
+```
+
+### Full permission matrix
+
+| API | Permission | Endpoints | Type |
+| --- | --- | --- | --- |
+| WindowsDefenderATP | Score.Read.All | /api/exposureScore, /api/configurationScore | Application |
+| WindowsDefenderATP | SecurityRecommendation.Read.All | /api/recommendations | Application |
+| WindowsDefenderATP | Vulnerability.Read.All | /api/vulnerabilities | Application |
+| WindowsDefenderATP | Machine.ReadWrite.All | MCP remediation bridge (optional) | Application |
+| Microsoft Graph | SecurityEvents.Read.All | /security/secureScores | Application |
+
+All permissions require **admin consent** from a Global Administrator, Privileged Role Administrator, or Cloud Application Administrator.
 
 ### Quick diagnosis
 
@@ -343,6 +393,32 @@ Audience: https://api.security.microsoft.com
 Roles: [ 'Score.Read.All', 'Vulnerability.Read.All', 'SecurityRecommendation.Read.All', 'Machine.ReadWrite.All' ]
 ```
 
+For Graph permissions, change the scope to `https://graph.microsoft.com/.default` and check for `SecurityEvents.Read.All`:
+
+```powershell
+node -e "
+const axios = require('axios');
+require('dotenv').config({ path: '.env.local' });
+(async () => {
+  const r = await axios.post(
+    'https://login.microsoftonline.com/' + process.env.TENANT_ID + '/oauth2/v2.0/token',
+    new URLSearchParams({ client_id: process.env.CLIENT_ID, client_secret: process.env.CLIENT_SECRET, scope: 'https://graph.microsoft.com/.default', grant_type: 'client_credentials' }).toString(),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }}
+  );
+  const payload = JSON.parse(Buffer.from(r.data.access_token.split('.')[1], 'base64url').toString());
+  console.log('Audience:', payload.aud);
+  console.log('Roles:', payload.roles || '** NONE — admin consent missing **');
+})();
+"
+```
+
+Expected healthy output:
+
+```
+Audience: https://graph.microsoft.com
+Roles: [ 'SecurityEvents.Read.All' ]
+```
+
 If `Roles` shows `undefined` or is missing permissions, admin consent is needed.
 
 ### Fix: Grant admin consent for Defender permissions
@@ -361,8 +437,10 @@ Option B — Grant consent via Azure Portal:
    - `SecurityRecommendation.Read.All`
    - `Vulnerability.Read.All`
    - `Machine.ReadWrite.All`
-3. Click **Grant admin consent for [tenant]**.
-4. Wait 1–2 minutes for propagation.
+3. Confirm this Microsoft Graph permission is listed:
+   - `SecurityEvents.Read.All`
+4. Click **Grant admin consent for [tenant]**.
+5. Wait 1–2 minutes for propagation.
 
 Option C — Re-run the full registration script (creates a new secret):
 
