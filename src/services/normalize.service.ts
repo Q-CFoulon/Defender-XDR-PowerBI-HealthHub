@@ -257,7 +257,7 @@ const parseM365SecureScores = (raw: unknown): { current: number | null; max: num
   };
 };
 
-const parseCloudSecureScores = (raw: unknown): { current: number | null; target: number | null; pct: number | null } => {
+const parseCloudSecureScores = (raw: unknown, configuredMax: number | null = null): { current: number | null; target: number | null; pct: number | null } => {
   const rows = pickArray(raw);
   const row = asRecord(rows[0] ?? raw);
 
@@ -274,17 +274,34 @@ const parseCloudSecureScores = (raw: unknown): { current: number | null; target:
     toNumber(row.score) ??
     toNumber(row.currentScorePct);
 
+  const maxScore =
+    toNumber(row.maxScore) ??
+    toNumber(row.max) ??
+    configuredMax;
+
   const target =
     toNumber(row.targetScore) ??
     toNumber(row.target) ??
-    toNumber(row.maxScore) ??
     99;
 
-  const pct =
-    toNumber(row.scorePct) ??
-    (current !== null && target !== null && target > 0
-      ? Number(((current / target) * 100).toFixed(2))
-      : current);
+  // Use explicit percentage field if available (API may return 0.0–1.0 or 0–100)
+  const apiPct =
+    toNumber(row.percentage) ??
+    toNumber(row.scorePct);
+
+  let pct: number | null;
+  if (apiPct !== null) {
+    // If API returns percentage as 0.0–1.0, convert to 0–100
+    pct = apiPct <= 1 && apiPct >= 0 ? Number((apiPct * 100).toFixed(2)) : apiPct;
+  } else if (current !== null && maxScore !== null && maxScore > 0) {
+    // Calculate from current / maxScore when max is available
+    pct = Number(((current / maxScore) * 100).toFixed(2));
+  } else if (current !== null && current <= 100) {
+    // Score already looks like a percentage
+    pct = current;
+  } else {
+    pct = null;
+  }
 
   return {
     current,
@@ -339,9 +356,11 @@ const normalizeVulnerabilityOverview = (raw: unknown): VulnerabilityOverview => 
 };
 
 export class NormalizeService {
+  public constructor(private readonly cloudScoreMax: number | null = null) {}
+
   public normalize(defender: DefenderRawData, graph: GraphRawData): NormalizedDataset {
     const m365 = parseM365SecureScores(graph.secureScores);
-    const cloud = parseCloudSecureScores(defender.cloudSecureScore);
+    const cloud = parseCloudSecureScores(defender.cloudSecureScore, this.cloudScoreMax);
 
     const secureScores: SecureScores = {
       m365CurrentScore: m365.current,
@@ -355,11 +374,20 @@ export class NormalizeService {
       cloudScorePct: cloud.pct
     };
 
+    const programInitiatives = normalizeProgramInitiatives(defender.initiatives);
+    const vulnerabilityOverview = normalizeVulnerabilityOverview(defender.vulnerabilityOverview);
+
+    // If the exposure endpoint didn't return an activeRecommendations count,
+    // fall back to the number of items from the initiatives/recommendations endpoint
+    if (vulnerabilityOverview.activeRecommendations === 0 && programInitiatives.length > 0) {
+      vulnerabilityOverview.activeRecommendations = programInitiatives.length;
+    }
+
     return {
-      programInitiatives: normalizeProgramInitiatives(defender.initiatives),
+      programInitiatives,
       topInitiatives: normalizeTopInitiatives(defender.topInitiatives),
       secureScores,
-      vulnerabilityOverview: normalizeVulnerabilityOverview(defender.vulnerabilityOverview)
+      vulnerabilityOverview
     };
   }
 }

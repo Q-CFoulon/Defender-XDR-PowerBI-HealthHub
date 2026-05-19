@@ -119,7 +119,7 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
   const oauthClient = new OAuthClient(config);
   const defenderClient = new DefenderClient(config, oauthClient);
   const graphClient = new GraphClient(config, oauthClient);
-  const normalizeService = new NormalizeService();
+  const normalizeService = new NormalizeService(config.cloudScoreMax);
   const mcpBridgeClient = new McpBridgeClient(config);
   const remediationService = new RemediationService(mcpBridgeClient);
   const snapshotStore = new SnapshotStoreService(config.dataDirectory);

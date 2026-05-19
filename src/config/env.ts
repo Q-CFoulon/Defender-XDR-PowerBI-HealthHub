@@ -58,6 +58,7 @@ export interface AppConfig {
   mcpBridgeApiKey: string;
   powerBiPushDatasetUrl: string;
   powerBiPushBearerToken: string;
+  cloudScoreMax: number | null;
   dataDirectory: string;
 }
 
@@ -83,5 +84,6 @@ export const config: AppConfig = {
   mcpBridgeApiKey: optionalEnv("MCP_BRIDGE_API_KEY", ""),
   powerBiPushDatasetUrl: optionalEnv("POWERBI_PUSH_DATASET_URL", ""),
   powerBiPushBearerToken: optionalEnv("POWERBI_PUSH_BEARER_TOKEN", ""),
+  cloudScoreMax: (() => { const v = process.env.CLOUD_SCORE_MAX; const n = Number(v); return Number.isFinite(n) && n > 0 ? n : null; })(),
   dataDirectory: path.resolve(optionalEnv("DATA_DIRECTORY", path.join(appBaseDirectory, "data")))
 };
