@@ -204,6 +204,8 @@ Development mode:
 npm run dev
 ```
 
+The dashboard is available at `http://localhost:4010/dashboard` (the root URL redirects here automatically).
+
 Production mode:
 
 ```powershell
@@ -288,7 +290,7 @@ Power BI endpoints:
 
 Operational endpoints:
 
-- GET / — Service discovery (JSON)
+- GET / — Redirects to /dashboard
 - GET /dashboard — Full dashboard (browser UI, admin auth)
 - GET /admin — Admin dashboard (browser UI, admin auth)
 - GET /api/health

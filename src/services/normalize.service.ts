@@ -274,15 +274,18 @@ const parseCloudSecureScores = (raw: unknown, configuredMax: number | null = nul
     toNumber(row.score) ??
     toNumber(row.currentScorePct);
 
+  // Defender configurationScore API returns values on a 0–1000 scale.
+  // Use explicit max from response, then configured env override, then default 1000.
   const maxScore =
     toNumber(row.maxScore) ??
     toNumber(row.max) ??
-    configuredMax;
+    configuredMax ??
+    1000;
 
   const target =
     toNumber(row.targetScore) ??
     toNumber(row.target) ??
-    99;
+    maxScore;
 
   // Use explicit percentage field if available (API may return 0.0–1.0 or 0–100)
   const apiPct =
@@ -293,8 +296,8 @@ const parseCloudSecureScores = (raw: unknown, configuredMax: number | null = nul
   if (apiPct !== null) {
     // If API returns percentage as 0.0–1.0, convert to 0–100
     pct = apiPct <= 1 && apiPct >= 0 ? Number((apiPct * 100).toFixed(2)) : apiPct;
-  } else if (current !== null && maxScore !== null && maxScore > 0) {
-    // Calculate from current / maxScore when max is available
+  } else if (current !== null && maxScore > 0) {
+    // Calculate from current / maxScore
     pct = Number(((current / maxScore) * 100).toFixed(2));
   } else if (current !== null && current <= 100) {
     // Score already looks like a percentage

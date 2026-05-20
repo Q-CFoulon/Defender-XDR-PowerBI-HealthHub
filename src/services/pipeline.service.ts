@@ -197,14 +197,35 @@ export class PipelineService {
   public async hydrateFromDisk(): Promise<void> {
     this.latestSnapshot = await this.snapshotStore.loadLatest();
 
-    if (this.latestSnapshot && this.ingestionStatus.lastRefreshStatus === "never") {
-      this.ingestionStatus = {
-        ...this.ingestionStatus,
-        lastRefreshStatus: "success",
-        lastRefreshTime: this.latestSnapshot.collectedAt,
-        lastRefreshTrigger: "hydrate-from-disk",
-        lastRefreshError: null
-      };
+    if (this.latestSnapshot) {
+      // Backfill dataFreshness for snapshots created before this field existed
+      if (!this.latestSnapshot.dataFreshness) {
+        this.latestSnapshot.dataFreshness = {
+          secureScores: this.latestSnapshot.collectedAt,
+          cloudSecureScore: this.latestSnapshot.secureScores.cloudScorePct !== null
+            ? this.latestSnapshot.collectedAt : null,
+          m365SecureScore: this.latestSnapshot.secureScores.m365ScorePct !== null
+            ? this.latestSnapshot.collectedAt : null,
+          programInitiatives: this.latestSnapshot.programInitiatives.length > 0
+            ? this.latestSnapshot.collectedAt : null,
+          topInitiatives: this.latestSnapshot.topInitiatives.length > 0
+            ? this.latestSnapshot.collectedAt : null,
+          vulnerabilityOverview: this.latestSnapshot.vulnerabilityOverview.exposureScore !== null
+            ? this.latestSnapshot.collectedAt : null,
+          remediationRecommendations: this.latestSnapshot.remediationRecommendations.length > 0
+            ? this.latestSnapshot.collectedAt : null
+        };
+      }
+
+      if (this.ingestionStatus.lastRefreshStatus === "never") {
+        this.ingestionStatus = {
+          ...this.ingestionStatus,
+          lastRefreshStatus: "success",
+          lastRefreshTime: this.latestSnapshot.collectedAt,
+          lastRefreshTrigger: "hydrate-from-disk",
+          lastRefreshError: null
+        };
+      }
     }
   }
 

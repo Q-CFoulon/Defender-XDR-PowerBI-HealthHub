@@ -133,6 +133,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
 
 /* ---- Empty / Loading ---- */
 .empty-state { color: var(--text-dim); font-size: .85rem; font-style: italic; padding: 24px; text-align: center; }
+.stale-note { display: block; font-size: .7rem; color: var(--yellow); margin-bottom: 8px; padding: 4px 8px; background: var(--yellow-bg); border-radius: 4px; }
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -283,6 +284,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
       <div class="grid grid-2">
         <div class="card">
           <div class="card-header"><span class="card-title">M365 Secure Score</span></div>
+          <div id="s_m365Stale"></div>
           <div class="score-bar score-bar-lg"><div class="score-track score-track-lg"><div class="score-fill score-fill-lg" id="s_m365Fill"></div></div><span class="score-pct score-pct-lg" id="s_m365Pct">—</span></div>
           <div class="metric-row">
             <div class="metric"><span class="metric-label">Current</span><div class="metric-value mono" id="s_m365Cur">—</div></div>
@@ -291,6 +293,7 @@ button:disabled { opacity: .4; cursor: not-allowed; }
         </div>
         <div class="card">
           <div class="card-header"><span class="card-title">Cloud Secure Score</span></div>
+          <div id="s_cloudStale"></div>
           <div class="score-bar score-bar-lg"><div class="score-track score-track-lg"><div class="score-fill score-fill-lg" id="s_cloudFill"></div></div><span class="score-pct score-pct-lg" id="s_cloudPct">—</span></div>
           <div class="metric-row">
             <div class="metric"><span class="metric-label">Current</span><div class="metric-value mono" id="s_cloudCur">—</div></div>
@@ -362,6 +365,7 @@ const BASE = window.location.origin;
 let polling = null;
 let activeFilter = 'all';
 let cachedRecs = [];
+let cachedRecsAsOf = null;
 
 /* ======= NAVIGATION ======= */
 const pageTitles = { dashboard: 'Dashboard', scores: 'Secure Scores', initiatives: 'Initiatives', recommendations: 'Recommendations', errors: 'Errors' };
@@ -491,12 +495,26 @@ function renderDashboard(health, ingestion, overview) {
 /* ======= RENDER: SCORES ======= */
 function renderScores(overview) {
   const ss = overview?.secureScores;
+  const freshness = overview?.dataFreshness;
   setScore('s_m365Fill', 's_m365Pct', ss?.m365ScorePct);
   setScore('s_cloudFill', 's_cloudPct', ss?.cloudScorePct);
   document.getElementById('s_m365Cur').textContent = ss?.m365CurrentScore ?? '—';
   document.getElementById('s_m365Max').textContent = ss?.m365MaxScore ?? '—';
   document.getElementById('s_cloudCur').textContent = ss?.cloudCurrentScore ?? '—';
   document.getElementById('s_cloudTarget').textContent = ss?.cloudTargetScore ?? '—';
+
+  // Show staleness indicators when data is carried forward
+  const collectedAt = overview?.collectedAt;
+  if (freshness?.cloudSecureScore && collectedAt && freshness.cloudSecureScore !== collectedAt) {
+    document.getElementById('s_cloudStale').innerHTML = `<span class="stale-note">Data as of: ${new Date(freshness.cloudSecureScore).toLocaleString()}</span>`;
+  } else {
+    document.getElementById('s_cloudStale').innerHTML = '';
+  }
+  if (freshness?.m365SecureScore && collectedAt && freshness.m365SecureScore !== collectedAt) {
+    document.getElementById('s_m365Stale').innerHTML = `<span class="stale-note">Data as of: ${new Date(freshness.m365SecureScore).toLocaleString()}</span>`;
+  } else {
+    document.getElementById('s_m365Stale').innerHTML = '';
+  }
 
   const v = overview?.vulnerabilityOverview;
   document.getElementById('v_exposureScore').textContent = v?.exposureScore ?? '—';
@@ -513,9 +531,15 @@ function renderScores(overview) {
 }
 
 /* ======= RENDER: INITIATIVES ======= */
-function renderInitiatives(program, top) {
+function renderInitiatives(programResp, topResp) {
+  const program = Array.isArray(programResp) ? programResp : (programResp?.items || []);
+  const top = Array.isArray(topResp) ? topResp : (topResp?.items || []);
+  const programAsOf = programResp?.dataAsOf;
+  const topAsOf = topResp?.dataAsOf;
+
   if (program && program.length > 0) {
-    document.getElementById('programTable').innerHTML = `<table class="data-table"><thead><tr><th>Initiative</th><th class="num">Current %</th><th class="num">Target %</th><th class="num">Δ %</th><th>Trend</th></tr></thead><tbody>` +
+    const staleNote = programAsOf ? `<span class="stale-note">Data as of: ${new Date(programAsOf).toLocaleString()}</span>` : '';
+    document.getElementById('programTable').innerHTML = staleNote + `<table class="data-table"><thead><tr><th>Initiative</th><th class="num">Current %</th><th class="num">Target %</th><th class="num">Δ %</th><th>Trend</th></tr></thead><tbody>` +
       program.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${pctDisplay(i.currentScorePct)}</td><td class="num">${pctDisplay(i.targetScorePct)}</td><td class="num">${i.trendDeltaPct != null ? i.trendDeltaPct.toFixed(1) : '—'}</td><td><span class="trend-${i.trendDirection || 'flat'}">${i.trendDirection || 'flat'}</span></td></tr>`).join('') +
       `</tbody></table>`;
   } else {
@@ -523,7 +547,8 @@ function renderInitiatives(program, top) {
   }
 
   if (top && top.length > 0) {
-    document.getElementById('topTable').innerHTML = `<table class="data-table"><thead><tr><th>Initiative</th><th class="num">Score %</th><th class="num">Δ %</th></tr></thead><tbody>` +
+    const staleNote = topAsOf ? `<span class="stale-note">Data as of: ${new Date(topAsOf).toLocaleString()}</span>` : '';
+    document.getElementById('topTable').innerHTML = staleNote + `<table class="data-table"><thead><tr><th>Initiative</th><th class="num">Score %</th><th class="num">Δ %</th></tr></thead><tbody>` +
       top.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${pctDisplay(i.scorePct)}</td><td class="num">${i.trendDeltaPct != null ? i.trendDeltaPct.toFixed(1) : '—'}</td></tr>`).join('') +
       `</tbody></table>`;
   } else {
@@ -532,8 +557,10 @@ function renderInitiatives(program, top) {
 }
 
 /* ======= RENDER: RECOMMENDATIONS ======= */
-function renderRecommendations(recs) {
-  cachedRecs = recs || [];
+function renderRecommendations(recsResp) {
+  const items = Array.isArray(recsResp) ? recsResp : (recsResp?.items || []);
+  cachedRecs = items;
+  cachedRecsAsOf = recsResp?.dataAsOf || null;
   const priorities = ['all', 'high', 'medium', 'low'];
   document.getElementById('recFilters').innerHTML = priorities.map(p =>
     `<button class="btn btn-sm ${activeFilter === p ? 'btn-primary' : 'btn-ghost'}" onclick="filterRecs('${p}')">${p === 'all' ? 'All' : p.charAt(0).toUpperCase() + p.slice(1)}</button>`
@@ -549,7 +576,8 @@ function applyRecFilter() {
     document.getElementById('recTable').innerHTML = '<p class="empty-state">No recommendations match the current filter.</p>';
     return;
   }
-  document.getElementById('recTable').innerHTML = `<table class="data-table"><thead><tr><th>Priority</th><th>Source</th><th>Title</th><th class="wrap">Description</th><th>Risk Area</th><th>Link</th></tr></thead><tbody>` +
+  const staleNote = cachedRecsAsOf ? `<span class="stale-note">Data as of: ${new Date(cachedRecsAsOf).toLocaleString()}</span>` : '';
+  document.getElementById('recTable').innerHTML = staleNote + `<table class="data-table"><thead><tr><th>Priority</th><th>Source</th><th>Title</th><th class="wrap">Description</th><th>Risk Area</th><th>Link</th></tr></thead><tbody>` +
     list.map(r => `<tr>
       <td>${badge(r.priority)}</td>
       <td class="td-nowrap">${esc(r.source)}</td>

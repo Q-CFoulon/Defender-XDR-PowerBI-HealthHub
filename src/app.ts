@@ -89,19 +89,7 @@ export const createApplication = async (): Promise<ApplicationRuntime> => {
   });
 
   app.get("/", (_req, res) => {
-    res.json({
-      service: "defender-xdr-powerbi-healthhub",
-      message: "Use /api endpoints for health, Power BI data, and refresh control.",
-      endpoints: {
-        dashboard: "/dashboard",
-        adminDashboard: "/admin",
-        health: "/api/health",
-        powerBiOverview: "/api/powerbi/overview",
-        powerBiIngestionStatus: "/api/powerbi/ingestion-status",
-        permissionDiagnostics: "/api/diagnostics/permissions",
-        manualRefresh: "POST /api/admin/refresh"
-      }
-    });
+    res.redirect("/dashboard");
   });
 
   app.get("/dashboard", adminAuth, (_req, res) => {
