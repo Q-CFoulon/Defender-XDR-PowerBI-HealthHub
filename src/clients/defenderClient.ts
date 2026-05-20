@@ -58,7 +58,10 @@ export class DefenderClient {
       return await this.callEndpoint(path);
     } catch (error) {
       if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 403)) {
-        logger.info(
+        const sourceError = toSourceError(path, endpointName, error);
+        errors.push(sourceError);
+
+        logger.warn(
           { endpointName, path, statusCode: error.response.status },
           "Defender API returned %d; feature not available or not licensed for this tenant",
           error.response.status
