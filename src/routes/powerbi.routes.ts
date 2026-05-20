@@ -48,7 +48,8 @@ export const createPowerBiRouter = (
       collectedAt: snapshot.collectedAt,
       secureScores: snapshot.secureScores,
       vulnerabilityOverview: snapshot.vulnerabilityOverview,
-      recommendationCount: snapshot.remediationRecommendations.length
+      recommendationCount: snapshot.remediationRecommendations.length,
+      dataFreshness: snapshot.dataFreshness
     });
   });
 
@@ -57,7 +58,10 @@ export const createPowerBiRouter = (
     if (!snapshot) {
       return;
     }
-    res.json(snapshot.programInitiatives);
+    res.json({
+      items: snapshot.programInitiatives,
+      dataAsOf: snapshot.dataFreshness.programInitiatives
+    });
   });
 
   router.get("/top-initiatives", (_req, res) => {
@@ -65,7 +69,10 @@ export const createPowerBiRouter = (
     if (!snapshot) {
       return;
     }
-    res.json(snapshot.topInitiatives);
+    res.json({
+      items: snapshot.topInitiatives,
+      dataAsOf: snapshot.dataFreshness.topInitiatives
+    });
   });
 
   router.get("/secure-scores", (_req, res) => {
@@ -73,7 +80,13 @@ export const createPowerBiRouter = (
     if (!snapshot) {
       return;
     }
-    res.json(snapshot.secureScores);
+    res.json({
+      ...snapshot.secureScores,
+      dataAsOf: {
+        cloud: snapshot.dataFreshness.cloudSecureScore,
+        m365: snapshot.dataFreshness.m365SecureScore
+      }
+    });
   });
 
   router.get("/vulnerability-overview", (_req, res) => {
@@ -81,7 +94,10 @@ export const createPowerBiRouter = (
     if (!snapshot) {
       return;
     }
-    res.json(snapshot.vulnerabilityOverview);
+    res.json({
+      ...snapshot.vulnerabilityOverview,
+      dataAsOf: snapshot.dataFreshness.vulnerabilityOverview
+    });
   });
 
   router.get("/remediation-recommendations", (_req, res) => {
@@ -89,7 +105,10 @@ export const createPowerBiRouter = (
     if (!snapshot) {
       return;
     }
-    res.json(snapshot.remediationRecommendations);
+    res.json({
+      items: snapshot.remediationRecommendations,
+      dataAsOf: snapshot.dataFreshness.remediationRecommendations
+    });
   });
 
   router.get("/full-snapshot", (_req, res) => {

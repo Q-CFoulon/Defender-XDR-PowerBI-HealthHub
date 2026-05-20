@@ -87,6 +87,17 @@ export interface RemediationRecommendation {
   generatedAt: string;
 }
 
+/** Tracks when each data section was last successfully populated with non-empty data. */
+export interface DataFreshness {
+  secureScores: string | null;
+  cloudSecureScore: string | null;
+  m365SecureScore: string | null;
+  programInitiatives: string | null;
+  topInitiatives: string | null;
+  vulnerabilityOverview: string | null;
+  remediationRecommendations: string | null;
+}
+
 export interface UnifiedSnapshot {
   collectedAt: string;
   programInitiatives: ProgramInitiative[];
@@ -94,6 +105,7 @@ export interface UnifiedSnapshot {
   secureScores: SecureScores;
   vulnerabilityOverview: VulnerabilityOverview;
   remediationRecommendations: RemediationRecommendation[];
+  dataFreshness: DataFreshness;
   metadata: {
     tenantId: string;
     refreshCron: string;

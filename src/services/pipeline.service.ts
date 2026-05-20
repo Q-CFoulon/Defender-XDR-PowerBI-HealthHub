@@ -8,6 +8,7 @@ import {
   type RemediationDiagnostics
 } from "../remediation/remediation.service";
 import type {
+  DataFreshness,
   DefenderRawData,
   GraphRawData,
   IngestionStatusSnapshot,
@@ -56,6 +57,116 @@ const toRefreshStatus = (
 
   const hasIssues = coreStatuses.some((status) => status === "degraded" || status === "failed");
   return hasIssues ? "partial" : "success";
+};
+
+const EMPTY_FRESHNESS: DataFreshness = {
+  secureScores: null,
+  cloudSecureScore: null,
+  m365SecureScore: null,
+  programInitiatives: null,
+  topInitiatives: null,
+  vulnerabilityOverview: null,
+  remediationRecommendations: null
+};
+
+/**
+ * Merges a newly-built snapshot with the previous one, carrying forward
+ * "last known good" data for any section that came back empty/null in the
+ * current refresh.  Also updates dataFreshness timestamps so the UI can
+ * display "data as of [date]" per section.
+ */
+const mergeWithLastKnownGood = (
+  incoming: UnifiedSnapshot,
+  previous: UnifiedSnapshot | null
+): UnifiedSnapshot => {
+  const now = incoming.collectedAt;
+  const prevFreshness = previous?.dataFreshness ?? EMPTY_FRESHNESS;
+
+  const freshness: DataFreshness = { ...prevFreshness };
+
+  // --- Cloud Secure Score ---
+  if (incoming.secureScores.cloudScorePct !== null) {
+    freshness.cloudSecureScore = now;
+  } else if (previous && previous.secureScores.cloudScorePct !== null) {
+    incoming.secureScores = {
+      ...incoming.secureScores,
+      cloudCurrentScore: previous.secureScores.cloudCurrentScore,
+      cloudTargetScore: previous.secureScores.cloudTargetScore,
+      cloudScorePct: previous.secureScores.cloudScorePct
+    };
+    logger.info(
+      { staleDate: prevFreshness.cloudSecureScore },
+      "Cloud secure score empty in current refresh; carrying forward last known good value"
+    );
+  }
+
+  // --- M365 Secure Score ---
+  if (incoming.secureScores.m365ScorePct !== null) {
+    freshness.m365SecureScore = now;
+  } else if (previous && previous.secureScores.m365ScorePct !== null) {
+    incoming.secureScores = {
+      ...incoming.secureScores,
+      m365CurrentScore: previous.secureScores.m365CurrentScore,
+      m365MaxScore: previous.secureScores.m365MaxScore,
+      m365ScorePct: previous.secureScores.m365ScorePct
+    };
+    logger.info(
+      { staleDate: prevFreshness.m365SecureScore },
+      "M365 secure score empty in current refresh; carrying forward last known good value"
+    );
+  }
+
+  // Combined secure scores freshness
+  if (incoming.secureScores.cloudScorePct !== null || incoming.secureScores.m365ScorePct !== null) {
+    freshness.secureScores = now;
+  }
+
+  // --- Program Initiatives ---
+  if (incoming.programInitiatives.length > 0) {
+    freshness.programInitiatives = now;
+  } else if (previous && previous.programInitiatives.length > 0) {
+    incoming.programInitiatives = previous.programInitiatives;
+    logger.info(
+      { staleDate: prevFreshness.programInitiatives },
+      "Program initiatives empty in current refresh; carrying forward last known good value"
+    );
+  }
+
+  // --- Top Initiatives ---
+  if (incoming.topInitiatives.length > 0) {
+    freshness.topInitiatives = now;
+  } else if (previous && previous.topInitiatives.length > 0) {
+    incoming.topInitiatives = previous.topInitiatives;
+    logger.info(
+      { staleDate: prevFreshness.topInitiatives },
+      "Top initiatives empty in current refresh; carrying forward last known good value"
+    );
+  }
+
+  // --- Vulnerability Overview ---
+  if (incoming.vulnerabilityOverview.exposureScore !== null) {
+    freshness.vulnerabilityOverview = now;
+  } else if (previous && previous.vulnerabilityOverview.exposureScore !== null) {
+    incoming.vulnerabilityOverview = previous.vulnerabilityOverview;
+    logger.info(
+      { staleDate: prevFreshness.vulnerabilityOverview },
+      "Vulnerability overview empty in current refresh; carrying forward last known good value"
+    );
+  }
+
+  // --- Remediation Recommendations ---
+  if (incoming.remediationRecommendations.length > 0) {
+    freshness.remediationRecommendations = now;
+  } else if (previous && previous.remediationRecommendations.length > 0) {
+    incoming.remediationRecommendations = previous.remediationRecommendations;
+    logger.info(
+      { staleDate: prevFreshness.remediationRecommendations },
+      "Remediation recommendations empty in current refresh; carrying forward last known good value"
+    );
+  }
+
+  incoming.dataFreshness = freshness;
+  return incoming;
 };
 
 export class PipelineService {
@@ -179,6 +290,7 @@ export class PipelineService {
         collectedAt: new Date().toISOString(),
         ...normalized,
         remediationRecommendations: remediationResult.recommendations,
+        dataFreshness: EMPTY_FRESHNESS,
         metadata: {
           tenantId: this.config.tenantId,
           refreshCron: this.config.refreshCron,
@@ -190,13 +302,15 @@ export class PipelineService {
         }
       };
 
-      await this.snapshotStore.save(snapshot);
-      await this.powerBiExporter.exportSnapshot(snapshot);
+      const merged = mergeWithLastKnownGood(snapshot, this.latestSnapshot);
 
-      this.latestSnapshot = snapshot;
+      await this.snapshotStore.save(merged);
+      await this.powerBiExporter.exportSnapshot(merged);
+
+      this.latestSnapshot = merged;
       this.ingestionStatus = this.buildIngestionStatus(
         trigger,
-        snapshot.collectedAt,
+        merged.collectedAt,
         defenderRaw,
         graphRaw,
         remediationResult.diagnostics
@@ -204,8 +318,8 @@ export class PipelineService {
 
       logger.info(
         {
-          collectedAt: snapshot.collectedAt,
-          recommendationCount: snapshot.remediationRecommendations.length,
+          collectedAt: merged.collectedAt,
+          recommendationCount: merged.remediationRecommendations.length,
           refreshStatus: this.ingestionStatus.lastRefreshStatus,
           durationMs: elapsed()
         },
@@ -214,7 +328,7 @@ export class PipelineService {
 
       metrics.refreshDuration.observe(elapsed());
 
-      return snapshot;
+      return merged;
     } catch (error) {
       this.ingestionStatus = {
         ...this.ingestionStatus,
